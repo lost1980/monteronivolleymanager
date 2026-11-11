@@ -130,80 +130,74 @@
                 return str.toUpperCase();
             };
 
-            // Parser universale e robusto per qualsiasi tipo di data
-            const parseDateObj = (dateStr) => {
+            // Converte stringa data (GG/MM/AAAA o AAAA-MM-GG) in oggetto {day, month, year}
+            const parseDateParts = (dateStr) => {
                 if (!dateStr) return null;
-                if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : dateStr;
-
                 let str = dateStr.toString().trim();
                 if (!str) return null;
 
-                // Se contiene "/" (es. 18/02/2027 o 2027/02/18)
+                let d, m, y;
                 if (str.includes('/')) {
                     const parts = str.split('/');
                     if (parts.length === 3) {
                         if (parts[0].length === 4) {
-                            // AAAA/MM/GG
-                            const dt = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-                            if (!isNaN(dt.getTime())) return dt;
+                            y = parseInt(parts[0], 10);
+                            m = parseInt(parts[1], 10);
+                            d = parseInt(parts[2], 10);
                         } else {
-                            // GG/MM/AAAA
-                            const dt = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-                            if (!isNaN(dt.getTime())) return dt;
+                            d = parseInt(parts[0], 10);
+                            m = parseInt(parts[1], 10);
+                            y = parseInt(parts[2], 10);
                         }
                     }
-                }
-
-                // Se contiene "-" (es. 2027-02-18 o 18-02-2027)
-                if (str.includes('-')) {
+                } else if (str.includes('-')) {
                     const parts = str.split('-');
                     if (parts.length === 3) {
                         if (parts[0].length === 4) {
-                            // AAAA-MM-GG
-                            const dt = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-                            if (!isNaN(dt.getTime())) return dt;
+                            y = parseInt(parts[0], 10);
+                            m = parseInt(parts[1], 10);
+                            d = parseInt(parts[2], 10);
                         } else {
-                            // GG-MM-AAAA
-                            const dt = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-                            if (!isNaN(dt.getTime())) return dt;
+                            d = parseInt(parts[0], 10);
+                            m = parseInt(parts[1], 10);
+                            y = parseInt(parts[2], 10);
                         }
                     }
                 }
 
-                const fallbackDt = new Date(str);
-                return isNaN(fallbackDt.getTime()) ? null : fallbackDt;
+                if (!y || !m || !d || isNaN(y) || isNaN(m) || isNaN(d)) return null;
+                return { d, m, y };
             };
 
             const formatDateDisplay = (dateStr) => {
-                const dt = parseDateObj(dateStr);
-                if (!dt) return dateStr || 'Assente';
-                const day = String(dt.getDate()).padStart(2, '0');
-                const month = String(dt.getMonth() + 1).padStart(2, '0');
-                const year = dt.getFullYear();
-                return `${day}/${month}/${year}`;
+                const p = parseDateParts(dateStr);
+                if (!p) return dateStr || 'Assente';
+                return `${String(p.d).padStart(2, '0')}/${String(p.m).padStart(2, '0')}/${p.y}`;
             };
 
-            // Logica rigorosa: Rosso (scaduto/assente), Giallo (da oggi a 2 mesi), Verde (> 2 mesi)
+            // Regola colori basata su oggi (11 novembre 2026)
+            // Oggi: Anno 2026, Mese 11, Giorno 11
+            // 2 mesi dopo: 11 gennaio 2027
             const getCertStatus = (dateStr) => {
-                const expiryDate = parseDateObj(dateStr);
-                if (!expiryDate) return 'red';
+                const p = parseDateParts(dateStr);
+                if (!p) return 'red'; // Assente / non valida -> Rosso
 
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                expiryDate.setHours(0, 0, 0, 0);
+                // Creiamo oggetti Data basati su mezzanotte locale sicura
+                const expiry = new Date(p.y, p.m - 1, p.d);
+                const today = new Date(2026, 10, 11); // 11 novembre 2026
 
-                if (expiryDate < today) {
-                    return 'red'; // Scaduto
+                if (expiry < today) {
+                    return 'red'; // Scaduto -> Rosso
                 }
 
-                const twoMonthsFromNow = new Date(today);
-                twoMonthsFromNow.setMonth(twoMonthsFromNow.getMonth() + 2);
+                // Calcoliamo la data limite a 2 mesi da oggi (11 gennaio 2027)
+                const twoMonths = new Date(2027, 0, 11);
 
-                if (expiryDate <= twoMonthsFromNow) {
-                    return 'yellow'; // In scadenza entro 2 mesi
+                if (expiry <= twoMonths) {
+                    return 'yellow'; // In scadenza entro 2 mesi -> Giallo
                 }
 
-                return 'green'; // Valido oltre 2 mesi
+                return 'green'; // Oltre 2 mesi -> Verde
             };
 
             const handleSave = async (e) => {
@@ -234,3 +228,88 @@
                         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'atlete', currentAtleta.id), payload);
                         showToast("Atleta aggiornata con successo");
                     } else {
+                        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'atlete'), {
+                            ...payload,
+                            createdAt: new Date().toISOString()
+                        });
+                        showToast("Atleta inserita con successo");
+                    }
+                    setModalOpen(false);
+                    resetForm();
+                } catch (err) {
+                    console.error("Errore salvataggio:", err);
+                    showToast("Errore durante il salvataggio", "error");
+                }
+            };
+
+            const resetForm = () => {
+                setFormData({
+                    cognomeNome: '',
+                    matricola: '',
+                    anno: new Date().getFullYear().toString(),
+                    codiceFiscale: '',
+                    dataNascita: '',
+                    societaAppartenenza: 'MONTERONI VOLLEY A.S.D.',
+                    categoria: '',
+                    dataCertificato: '',
+                    quotaIscrizione: '',
+                    note: ''
+                });
+                setCurrentAtleta(null);
+            };
+
+            const handleDelete = async (id) => {
+                if (!confirm("Sei sicuro di voler eliminare questa atleta?")) return;
+                if (!window.firebaseDB) return;
+                const { db, doc, deleteDoc, appId } = window.firebaseDB;
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'atlete', id));
+                    showToast("Atleta eliminata");
+                } catch (err) {
+                    console.error("Errore eliminazione:", err);
+                    showToast("Errore durante l'eliminazione", "error");
+                }
+            };
+
+            const handleClearDatabase = async () => {
+                if (!confirm("ATTENZIONE: Stai per eliminare TUTTE le atlete presenti nel database cloud. Vuoi procedere?")) return;
+                if (!confirm("Conferma definitiva: Vuoi davvero svuotare completamente l'archivio?")) return;
+                
+                if (!window.firebaseDB) return;
+                const { db, doc, deleteDoc, appId } = window.firebaseDB;
+                setLoading(true);
+
+                try {
+                    for (const atleta of atlete) {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'atlete', atleta.id));
+                    }
+                    showToast("Archivio svuotato con successo");
+                } catch (err) {
+                    console.error("Errore svuotamento database:", err);
+                    showToast("Errore durante lo svuotamento", "error");
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    try {
+                        const data = new Uint8Array(evt.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                        const parsedAtlete = [];
+                        rows.forEach((row) => {
+                            const colA = row[0]; 
+                            const colB = row[1]; 
+                            const colC = row[2]; 
+                            const colE = row[4]; 
+                            const colF = row[5]; 
+                            const colP = row[1
