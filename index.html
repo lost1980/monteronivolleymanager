@@ -130,34 +130,38 @@
                 return str.toUpperCase();
             };
 
-            // Funzione di parsing pulita e sicura per estrarre giorno, mese, anno
+            // Parser date protetto con try-catch per evitare qualsiasi blocco
             const parseDateParts = (dateStr) => {
-                if (!dateStr) return null;
-                let str = dateStr.toString().trim();
-                if (!str) return null;
+                try {
+                    if (!dateStr) return null;
+                    let str = dateStr.toString().trim();
+                    if (!str) return null;
 
-                let parts = [];
-                if (str.includes('/')) {
-                    parts = str.split('/');
-                } else if (str.includes('-')) {
-                    parts = str.split('-');
+                    let parts = [];
+                    if (str.includes('/')) {
+                        parts = str.split('/');
+                    } else if (str.includes('-')) {
+                        parts = str.split('-');
+                    }
+
+                    if (parts.length !== 3) return null;
+
+                    let d, m, y;
+                    if (parts[0].length === 4) {
+                        y = parseInt(parts[0], 10);
+                        m = parseInt(parts[1], 10);
+                        d = parseInt(parts[2], 10);
+                    } else {
+                        d = parseInt(parts[0], 10);
+                        m = parseInt(parts[1], 10);
+                        y = parseInt(parts[2], 10);
+                    }
+
+                    if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+                    return { d, m, y };
+                } catch (e) {
+                    return null;
                 }
-
-                if (parts.length !== 3) return null;
-
-                let d, m, y;
-                if (parts[0].length === 4) {
-                    y = parseInt(parts[0], 10);
-                    m = parseInt(parts[1], 10);
-                    d = parseInt(parts[2], 10);
-                } else {
-                    d = parseInt(parts[0], 10);
-                    m = parseInt(parts[1], 10);
-                    y = parseInt(parts[2], 10);
-                }
-
-                if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
-                return { d, m, y };
             };
 
             const formatDateDisplay = (dateStr) => {
@@ -166,14 +170,13 @@
                 return `${String(p.d).padStart(2, '0')}/${String(p.m).padStart(2, '0')}/${p.y}`;
             };
 
-            // Logica colori basata rigorosamente su oggi (11 novembre 2026)
+            // Logica colori blindata basata su oggi (11 novembre 2026)
             const getCertStatus = (dateStr) => {
                 const p = parseDateParts(dateStr);
                 if (!p) return 'red'; // Assente / non valida -> Rosso
 
-                // Formato numerico YYYYMMDD per un confronto matematico perfetto e privo di errori di fuso orario
                 const expiryVal = p.y * 10000 + p.m * 100 + p.d;
-                const todayVal = 2026 * 10000 + 11 * 100 + 11; // 11 novembre 2026
+                const todayVal = 2026 * 10000 + 11 * 100 + 11; // 11/11/2026
 
                 if (expiryVal < todayVal) {
                     return 'red'; // Scaduto -> Rosso
@@ -552,7 +555,7 @@
                         </div>
                     </main>
 
-                    <!-- Modale Inserimento / Modifica Totale Atleta -->
+                    {/* Modale Inserimento / Modifica Totale Atleta */}
                     {modalOpen && (
                         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
