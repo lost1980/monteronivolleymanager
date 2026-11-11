@@ -89,7 +89,7 @@
             useEffect(() => {
                 const initListener = () => {
                     if (!window.firebaseDB) {
-                        setTimeout(initListener, 200);
+                        setTimeout(initListener, 100);
                         return;
                     }
                     const { db, collection, onSnapshot, appId } = window.firebaseDB;
@@ -130,7 +130,123 @@
                 return str.toUpperCase();
             };
 
-            // Funzione di parsing pulita e sicura al 100%
+            // Parser date semplice e sicuro
             const parseDateParts = (dateStr) => {
                 if (!dateStr) return null;
                 let str = dateStr.toString().trim();
+                if (!str) return null;
+
+                let parts = [];
+                if (str.includes('/')) {
+                    parts = str.split('/');
+                } else if (str.includes('-')) {
+                    parts = str.split('-');
+                }
+
+                if (parts.length !== 3) return null;
+
+                let d, m, y;
+                if (parts[0].length === 4) {
+                    y = parseInt(parts[0], 10);
+                    m = parseInt(parts[1], 10);
+                    d = parseInt(parts[2], 10);
+                } else {
+                    d = parseInt(parts[0], 10);
+                    m = parseInt(parts[1], 10);
+                    y = parseInt(parts[2], 10);
+                }
+
+                if (isNaN(y) || isNaN(m) || isNaN(d)) return null;
+                return { d, m, y };
+            };
+
+            const formatDateDisplay = (dateStr) => {
+                const p = parseDateParts(dateStr);
+                if (!p) return dateStr || 'Assente';
+                return `${String(p.d).padStart(2, '0')}/${String(p.m).padStart(2, '0')}/${p.y}`;
+            };
+
+            // Logica colori basata su oggi (11 novembre 2026)
+            const getCertStatus = (dateStr) => {
+                const p = parseDateParts(dateStr);
+                if (!p) return 'red'; // Assente / non valida -> Rosso
+
+                const expiryVal = p.y * 10000 + p.m * 100 + p.d;
+                const todayVal = 2026 * 10000 + 11 * 100 + 11; // 11/11/2026
+
+                if (expiryVal < todayVal) {
+                    return 'red'; // Scaduto -> Rosso
+                }
+
+                // Limite a 2 mesi da oggi (11 gennaio 2027 -> 20270111)
+                const twoMonthsVal = 2027 * 10000 + 1 * 100 + 11;
+
+                if (expiryVal <= twoMonthsVal) {
+                    return 'yellow'; // In scadenza entro 2 mesi -> Giallo
+                }
+
+                return 'green'; // Valido oltre 2 mesi -> Verde
+            };
+
+            const handleSave = async (e) => {
+                e.preventDefault();
+                if (!window.firebaseDB) return;
+
+                const cfPulito = formData.codiceFiscale.trim().toUpperCase();
+
+                if (!currentAtleta) {
+                    const esiste = atlete.some(a => (a.codiceFiscale || '').trim().toUpperCase() === cfPulito);
+                    if (esiste) {
+                        alert("Atleta già inserita");
+                        return;
+                    }
+                }
+
+                const { db, collection, addDoc, updateDoc, doc, appId } = window.firebaseDB;
+                const payload = {
+                    ...formData,
+                    cognomeNome: formData.cognomeNome.trim().toUpperCase(),
+                    codiceFiscale: cfPulito,
+                    societaAppartenenza: cleanSocieta(formData.societaAppartenenza),
+                    updatedAt: new Date().toISOString()
+                };
+
+                try {
+                    if (currentAtleta) {
+                        await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'atlete', currentAtleta.id), payload);
+                        showToast("Atleta aggiornata con successo");
+                    } else {
+                        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'atlete'), {
+                            ...payload,
+                            createdAt: new Date().toISOString()
+                        });
+                        showToast("Atleta inserita con successo");
+                    }
+                    setModalOpen(false);
+                    resetForm();
+                } catch (err) {
+                    console.error("Errore salvataggio:", err);
+                    showToast("Errore durante il salvataggio", "error");
+                }
+            };
+
+            const resetForm = () => {
+                setFormData({
+                    cognomeNome: '',
+                    matricola: '',
+                    anno: new Date().getFullYear().toString(),
+                    codiceFiscale: '',
+                    dataNascita: '',
+                    societaAppartenenza: 'MONTERONI VOLLEY A.S.D.',
+                    categoria: '',
+                    dataCertificato: '',
+                    quotaIscrizione: '',
+                    note: ''
+                });
+                setCurrentAtleta(null);
+            };
+
+            const handleDelete = async (id) => {
+                if (!confirm("Sei sicuro di voler eliminare questa atleta?")) return;
+                if (!window.firebaseDB) return;
+                const { db, doc, delete
