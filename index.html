@@ -195,6 +195,28 @@
                 }
             };
 
+            // Funzione per svuotare completamente l'archivio atlete
+            const handleClearDatabase = async () => {
+                if (!confirm("ATTENZIONE: Stai per eliminare TUTTE le atlete presenti nel database cloud. Vuoi procedere?")) return;
+                if (!confirm("Conferma definitiva: Vuoi davvero svuotare completamente l'archivio?")) return;
+                
+                if (!window.firebaseDB) return;
+                const { db, doc, deleteDoc, appId } = window.firebaseDB;
+                setLoading(true);
+
+                try {
+                    for (const atleta of atlete) {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'atlete', atleta.id));
+                    }
+                    showToast("Archivio svuotato con successo");
+                } catch (err) {
+                    console.error("Errore svuotamento database:", err);
+                    showToast("Errore durante lo svuotamento", "error");
+                } finally {
+                    setLoading(false);
+                }
+            };
+
             const handleFileUpload = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -350,15 +372,21 @@
                                 </div>
                             </div>
                             <div className="flex flex-wrap gap-2 items-center">
-                                <label className="cursor-pointer bg-white text-red-700 hover:bg-red-50 font-semibold px-4 py-2 rounded-lg shadow text-sm flex items-center gap-2 transition">
+                                <label className="cursor-pointer bg-white text-red-700 hover:bg-red-50 font-semibold px-3 py-2 rounded-lg shadow text-xs sm:text-sm flex items-center gap-2 transition">
                                     <span data-lucide="upload" className="w-4 h-4"></span>
                                     Importa Excel / CSV
                                     <input type="file" accept=".xlsx, .xls, .csv" onChange={handleFileUpload} className="hidden" />
                                 </label>
-                                <button onClick={() => { resetForm(); setModalOpen(true); }} className="bg-red-800 hover:bg-red-900 text-white px-4 py-2 rounded-lg shadow text-sm font-semibold flex items-center gap-2 border border-red-600 transition">
+                                <button onClick={() => { resetForm(); setModalOpen(true); }} className="bg-red-800 hover:bg-red-900 text-white px-3 py-2 rounded-lg shadow text-xs sm:text-sm font-semibold flex items-center gap-2 border border-red-600 transition">
                                     <span data-lucide="user-plus" className="w-4 h-4"></span>
                                     Nuova Atleta
                                 </button>
+                                {atlete.length > 0 && (
+                                    <button onClick={handleClearDatabase} className="bg-slate-800 hover:bg-slate-900 text-red-400 px-3 py-2 rounded-lg shadow text-xs sm:text-sm font-semibold flex items-center gap-2 border border-slate-700 transition" title="Elimina tutte le atlete dal database">
+                                        <span data-lucide="trash" className="w-4 h-4"></span>
+                                        Svuota Archivio
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </header>
@@ -401,7 +429,7 @@
                                 <div className="p-12 text-center text-slate-500">Nessuna atleta trovata in archivio.</div>
                             ) : (
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-left border-collapse">
+                                    <table className="w-full text-left border-collapse min-w-[900px]">
                                         <thead>
                                             <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
                                                 <th className="p-3">Matr.</th>
@@ -440,8 +468,9 @@
                                                     </td>
                                                     <td className="p-3 text-right">
                                                         <div className="flex justify-end gap-2">
-                                                            <button onClick={() => { setCurrentAtleta(atleta); setFormData(atleta); setModalOpen(true); }} className="p-1.5 hover:bg-slate-200 rounded text-slate-600 transition" title="Modifica Completa">
-                                                                <span data-lucide="edit-3" className="w-4 h-4"></span>
+                                                            <button onClick={() => { setCurrentAtleta(atleta); setFormData(atleta); setModalOpen(true); }} className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 rounded text-xs font-semibold flex items-center gap-1 transition" title="Modifica Completa">
+                                                                <span data-lucide="edit-3" className="w-3.5 h-3.5"></span>
+                                                                Modifica
                                                             </button>
                                                             <button onClick={() => handleDelete(atleta.id)} className="p-1.5 hover:bg-red-100 rounded text-red-600 transition" title="Elimina">
                                                                 <span data-lucide="trash-2" className="w-4 h-4"></span>
@@ -528,7 +557,6 @@
                                                 className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white"
                                             >
                                                 <option value="">Seleziona categoria...</option>
-                                                {CATEGORIES.filter(c => c !== '').c}
                                                 {CATEGORIES.filter(c => c !== '').map(c => <option key={c} value={c}>{c}</option>)}
                                             </select>
                                         </div>
