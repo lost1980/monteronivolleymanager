@@ -19,28 +19,27 @@
 <body class="bg-slate-50 text-slate-900 min-h-screen">
     <div id="root"></div>
 
-    <!-- Firebase SDKs -->
+    <!-- Firebase SDKs & Configurazione Reale -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, doc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        // Configurazione Firebase sicura tramite variabili globali o demo
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-            apiKey: "demo-api-key",
-            authDomain: "demo-app.firebaseapp.com",
-            projectId: "demo-app",
-            storageBucket: "demo-app.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abcdef"
+        const firebaseConfig = {
+            apiKey: "AIzaSyAyo2mckgZE2MahMFYGOX3h1iM1XhXrF7c",
+            authDomain: "monteronivolleymanager.firebaseapp.com",
+            projectId: "monteronivolleymanager",
+            storageBucket: "monteronivolleymanager.firebasestorage.app",
+            messagingSenderId: "167180215755",
+            appId: "1:167180215755:web:ff3712b5dc0bc6879d424e"
         };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'monteroni-volley-atlete';
+        const appId = 'monteroni-volley-atlete';
 
-        window.firebaseDB = { db, auth, collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, setDoc, getDocs, appId };
+        window.firebaseDB = { db, auth, collection, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, doc, appId };
         
         signInAnonymously(auth).catch((error) => {
             console.error("Errore autenticazione anonima:", error);
@@ -68,7 +67,6 @@
             const [importing, setImporting] = useState(false);
             const [toast, setToast] = useState(null);
 
-            // Form State
             const [formData, setFormData] = useState({
                 cognomeNome: '',
                 matricola: '',
@@ -119,23 +117,19 @@
                 setTimeout(() => setToast(null), 3500);
             };
 
-            // Pulisci prefissi e slash dalla società
             const cleanSocieta = (val) => {
                 if (!val) return 'MONTERONI VOLLEY A.S.D.';
                 let str = val.toString().trim();
-                // Rimuove slash o caratteri speciali iniziali
                 str = str.replace(/^[\/\-\s]+/, '');
                 return str.toUpperCase();
             };
 
-            // Gestione form manuale
             const handleSave = async (e) => {
                 e.preventDefault();
                 if (!window.firebaseDB) return;
 
                 const cfPulito = formData.codiceFiscale.trim().toUpperCase();
 
-                // Controllo duplicati codice fiscale in inserimento manuale
                 if (!currentAtleta) {
                     const esiste = atlete.some(a => (a.codiceFiscale || '').trim().toUpperCase() === cfPulito);
                     if (esiste) {
@@ -201,7 +195,6 @@
                 }
             };
 
-            // Lettura file Excel / CSV
             const handleFileUpload = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
@@ -215,17 +208,15 @@
                         const worksheet = workbook.Sheets[firstSheetName];
                         const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-                        // Scarta intestazioni se presenti (es. prime 4-5 righe o cerca righe con dati)
                         const parsedAtlete = [];
-                        rows.forEach((row, idx) => {
-                            // Supponiamo che i dati partano dalla riga con intestazioni o saltiamo le prime se vuote
-                            const colA = row[0]; // Anno
-                            const colB = row[1]; // Matricola
-                            const colC = row[2]; // Cognome e Nome
-                            const colE = row[4]; // Codice Fiscale
-                            const colF = row[5]; // Data Nascita
-                            const colP = row[15]; // Società Appartenenza (indice 15 = colonna P)
-                            const colAB = row[27]; // Data Certificato (indice 27 = colonna AB)
+                        rows.forEach((row) => {
+                            const colA = row[0]; 
+                            const colB = row[1]; 
+                            const colC = row[2]; 
+                            const colE = row[4]; 
+                            const colF = row[5]; 
+                            const colP = row[15]; 
+                            const colAB = row[27]; 
 
                             if (colC && colE) {
                                 parsedAtlete.push({
@@ -244,7 +235,7 @@
                         });
 
                         if (parsedAtlete.length === 0) {
-                            alert("Nessuna atleta trovata nel file. Verifica che le colonne corrispondano (Cognome e Nome in col. C, CF in col. E).");
+                            alert("Nessuna atleta trovata nel file. Verifica la corrispondenza delle colonne.");
                             return;
                         }
 
@@ -252,7 +243,7 @@
                         setImportModalOpen(true);
                     } catch (err) {
                         console.error("Errore lettura file:", err);
-                        alert("Errore nella lettura del file Excel/CSV. Assicurati che sia un formato valido.");
+                        alert("Errore nella lettura del file Excel/CSV.");
                     }
                 };
                 reader.readAsArrayBuffer(file);
@@ -269,18 +260,17 @@
                 return val.toString().trim();
             };
 
-            // Salvataggio massivo sicuro a blocchi (anti-timeout)
             const confirmImport = async () => {
                 if (!window.firebaseDB || importPreview.length === 0) return;
                 setImporting(true);
 
-                const { db, collection, addDoc, appId } = window.firebaseDB;
+                const { db, collection, writeBatch, doc, appId } = window.firebaseDB;
                 let duplicateCount = 0;
                 let successCount = 0;
 
                 try {
-                    // Controlla codici fiscali esistenti
                     const existingCFs = new Set(atlete.map(a => (a.codiceFiscale || '').trim().toUpperCase()));
+                    const validItems = [];
 
                     for (const atleta of importPreview) {
                         const cf = atleta.codiceFiscale;
@@ -288,17 +278,30 @@
                             duplicateCount++;
                             continue;
                         }
+                        validItems.push(atleta);
+                        existingCFs.add(cf);
+                    }
 
-                        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'atlete'), {
-                            ...atleta,
-                            createdAt: new Date().toISOString()
-                        });
-                        existingCFs.add(cf); // Evita duplicati interni allo stesso file
-                        successCount++;
+                    const chunks = [];
+                    for (let i = 0; i < validItems.length; i += 40) {
+                        chunks.push(validItems.slice(i, i + 40));
+                    }
+
+                    for (const chunk of chunks) {
+                        const batch = writeBatch(db);
+                        for (const atleta of chunk) {
+                            const newDocRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'atlete'));
+                            batch.set(newDocRef, {
+                                ...atleta,
+                                createdAt: new Date().toISOString()
+                            });
+                        }
+                        await batch.commit();
+                        successCount += chunk.length;
                     }
 
                     if (duplicateCount > 0) {
-                        alert(`Atleta già inserita riscontrata per ${duplicateCount} elementi (saltati per evitare duplicati).`);
+                        alert(`Rilevate ${duplicateCount} atlete già presenti in archivio ("Atleta già inserita"). Saltate per evitare duplicati.`);
                     }
 
                     showToast(`Importate con successo ${successCount} atlete!`);
@@ -324,14 +327,12 @@
 
             return (
                 <div className="min-h-screen bg-slate-100 flex flex-col">
-                    {/* Toast Notification */}
                     {toast && (
                         <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-xl shadow-lg text-white font-medium flex items-center gap-2 ${toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'}`}>
                             {toast.message}
                         </div>
                     )}
 
-                    {/* Header Istituzionale */}
                     <header className="bg-red-700 text-white shadow-md">
                         <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
                             <div className="flex items-center gap-3">
@@ -355,9 +356,7 @@
                         </div>
                     </header>
 
-                    {/* Contenuto Principale */}
                     <main className="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
-                        {/* Filtri e Ricerca */}
                         <div className="bg-white p-4 rounded-xl shadow-sm mb-6 flex flex-col md:flex-row gap-4 justify-between items-center">
                             <div className="relative w-full md:w-96">
                                 <span data-lucide="search" className="absolute left-3 top-3 w-5 h-5 text-slate-400"></span>
@@ -388,10 +387,9 @@
                             </div>
                         </div>
 
-                        {/* Tabella Atlete */}
                         <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-slate-200">
                             {loading ? (
-                                <div className="p-12 text-center text-slate-500">Caricamento archivio in corso...</div>
+                                <div className="p-12 text-center text-slate-500">Caricamento archivio cloud in corso...</div>
                             ) : filteredAtlete.length === 0 ? (
                                 <div className="p-12 text-center text-slate-500">Nessuna atleta trovata in archivio.</div>
                             ) : (
@@ -450,7 +448,6 @@
                         </div>
                     </main>
 
-                    {/* Modale Inserimento / Modifica Atleta */}
                     {modalOpen && (
                         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
@@ -561,12 +558,11 @@
                         </div>
                     )}
 
-                    {/* Modale Anteprima Importazione */}
                     {importModalOpen && (
                         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
                             <div className="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-xl max-h-[90vh] flex flex-col">
                                 <h3 className="text-lg font-bold text-slate-950 mb-2">Anteprima Importazione ({importPreview.length} Atlete Rilevate)</h3>
-                                <p className="text-xs text-slate-500 mb-4">Verifica i dati estratti dal file prima di procedere al salvataggio definitivo nel cloud.</p>
+                                <p className="text-xs text-slate-500 mb-4">Verifica i dati estratti dal file prima di procedere al salvataggio nel cloud.</p>
                                 
                                 <div className="flex-1 overflow-y-auto border border-slate-200 rounded-xl mb-4">
                                     <table className="w-full text-left border-collapse text-xs">
@@ -609,7 +605,6 @@
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
 
-        // Inizializza le icone Lucide dopo il rendering
         setTimeout(() => {
             if (window.lucide) {
                 window.lucide.createIcons();
