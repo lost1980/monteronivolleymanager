@@ -16,8 +16,8 @@
     <!-- SheetJS per Excel e CSV -->
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     
-    <!-- PWA Icon Meta Tag con rotellina e stemma -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23B81D24'/><path d='M35 25 L65 25 L50 75 Z' fill='white'/><circle cx='80' cy='20' r='14' fill='%23334155'/><path d='M75 20 L85 20 M80 15 L80 25 M76 16 L84 24 M84 16 L76 24' stroke='white' stroke-width='2.5'/></svg>">
+    <!-- PWA Icon Meta Tag -->
+    <link rel="icon" type="image/png" href="./logo.png">
     
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
@@ -57,14 +57,17 @@
         const CATEGORIES = ['B2', '1D', 'U19', 'U17', 'U15', 'U13'];
         const PAYMENT_STATUSES = ['NON DOVUTO', 'DA PAGARE', 'PAGATO'];
 
-        // Logo originale fedele all'immagine fornita
+        // Logo originale preso direttamente da logo.png nella root
         function MonteroniLogo({ className = "w-10 h-10" }) {
           return (
             <img 
               src="./logo.png" 
               alt="ASD Monteroni Volley" 
-              className={`${className} object-contain rounded-xl`}
-              onError={(e) => { e.target.src = "https://placehold.co/100x100/B81D24/FFFFFF?text=ASD"; }}
+              className={`${className} object-contain rounded-xl bg-white p-0.5`}
+              onError={(e) => { 
+                e.target.onerror = null; 
+                e.target.src = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23B81D24'/><text x='50' y='55' font-size='30' fill='white' text-anchor='middle' font-weight='bold'>ASD</text></svg>"; 
+              }}
             />
           );
         }
@@ -442,7 +445,7 @@
               <header className="bg-gradient-to-r from-red-800 via-[#B81D24] to-red-900 text-white shadow-md sticky top-0 z-20">
                 <div className="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8 flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <div className="p-1.5 bg-white rounded-2xl shadow-md">
+                    <div className="p-1 bg-white rounded-2xl shadow-md">
                       <MonteroniLogo className="w-10 h-10" />
                     </div>
                     <div>
@@ -770,7 +773,7 @@
                     <div className="flex justify-end space-x-2">
                       <button onClick={() => setIsImportModalOpen(false)} className="px-4 py-2 bg-slate-100 rounded-xl text-sm">Annulla</button>
                       <button disabled={importing} onClick={handleConfirmImport} className="px-5 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold">
-                        {importing ? 'Salvataggio...' : 'Conferma e Salva nel DB'}
+                        {importing ? 'Salvataggio in corso...' : 'Conferma e Salva nel DB'}
                       </button>
                     </div>
                   </div>
