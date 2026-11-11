@@ -210,20 +210,28 @@
 
                         const parsedAtlete = [];
                         rows.forEach((row) => {
-                            const colA = row[0]; 
-                            const colB = row[1]; 
-                            const colC = row[2]; 
-                            const colE = row[4]; 
-                            const colF = row[5]; 
-                            const colP = row[15]; 
-                            const colAB = row[27]; 
+                            const colA = row[0]; // Anno
+                            const colB = row[1]; // Matricola
+                            const colC = row[2]; // Cognome e Nome
+                            const colE = row[4]; // Codice Fiscale
+                            const colF = row[5]; // Data Nascita
+                            const colP = row[15]; // Società Appartenenza
+                            const colAB = row[27]; // Data Certificato
 
                             if (colC && colE) {
+                                const nomeStr = colC.toString().trim().toUpperCase();
+                                const cfStr = colE.toString().trim().toUpperCase();
+
+                                // SCARTA INTESTAZioni (ignora righe che contengono le etichette delle colonne)
+                                if (nomeStr.includes('COGNOME') || cfStr.includes('CODICE') || cfStr.includes('CF')) {
+                                    return;
+                                }
+
                                 parsedAtlete.push({
                                     anno: colA ? colA.toString() : new Date().getFullYear().toString(),
                                     matricola: colB ? colB.toString() : '',
-                                    cognomeNome: colC.toString().trim().toUpperCase(),
-                                    codiceFiscale: colE.toString().trim().toUpperCase(),
+                                    cognomeNome: nomeStr,
+                                    codiceFiscale: cfStr,
                                     dataNascita: parseExcelDate(colF),
                                     societaAppartenenza: cleanSocieta(colP),
                                     categoria: 'U17',
