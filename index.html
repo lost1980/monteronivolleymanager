@@ -58,8 +58,21 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
-        const CATEGORIES = ['', 'B2', '1D', 'U19', 'U17', 'U15', 'U13'];
+        const CATEGORIES = ['', 'B2', '1D', 'U19', 'U17', 'U15', 'U13', 'S3'];
         const PAYMENT_STATUSES = ['', 'NON DOVUTO', 'DA PAGARE', 'PAGATO'];
+        const DOC_TYPES = ['', 'CARTA D\'IDENTITÀ', 'PATENTE', 'PASSAPORTO'];
+
+        // Colori distinti per ciascuna categoria
+        const CATEGORY_COLORS = {
+            'B2': 'bg-purple-100 text-purple-800 border-purple-200',
+            '1D': 'bg-blue-100 text-blue-800 border-blue-200',
+            'U19': 'bg-indigo-100 text-indigo-800 border-indigo-200',
+            'U17': 'bg-cyan-100 text-cyan-800 border-cyan-200',
+            'U15': 'bg-teal-100 text-teal-800 border-teal-200',
+            'U13': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+            'S3': 'bg-amber-100 text-amber-800 border-amber-200',
+            '': 'bg-slate-100 text-slate-400 border-slate-200'
+        };
 
         function App() {
             const [atlete, setAtlete] = useState([]);
@@ -81,6 +94,10 @@
                 dataNascita: '',
                 societaAppartenenza: 'MONTERONI VOLLEY A.S.D.',
                 categoria: '',
+                secondaCategoria: '',
+                numeroMaglia: 'Non assegnato',
+                tipoDocumento: '',
+                numeroDocumento: '',
                 dataCertificato: '',
                 quotaIscrizione: '',
                 note: ''
@@ -130,7 +147,6 @@
                 return str.toUpperCase();
             };
 
-            // Parser date protetto con try-catch per evitare qualsiasi blocco
             const parseDateParts = (dateStr) => {
                 try {
                     if (!dateStr) return null;
@@ -170,26 +186,24 @@
                 return `${String(p.d).padStart(2, '0')}/${String(p.m).padStart(2, '0')}/${p.y}`;
             };
 
-            // Logica colori blindata basata su oggi (11 novembre 2026)
             const getCertStatus = (dateStr) => {
                 const p = parseDateParts(dateStr);
-                if (!p) return 'red'; // Assente / non valida -> Rosso
+                if (!p) return 'red';
 
                 const expiryVal = p.y * 10000 + p.m * 100 + p.d;
                 const todayVal = 2026 * 10000 + 11 * 100 + 11; // 11/11/2026
 
                 if (expiryVal < todayVal) {
-                    return 'red'; // Scaduto -> Rosso
+                    return 'red';
                 }
 
-                // 2 mesi da oggi = 11 gennaio 2027 (20270111)
                 const twoMonthsVal = 2027 * 10000 + 1 * 100 + 11;
 
                 if (expiryVal <= twoMonthsVal) {
-                    return 'yellow'; // In scadenza entro 2 mesi -> Giallo
+                    return 'yellow';
                 }
 
-                return 'green'; // Oltre 2 mesi -> Verde
+                return 'green';
             };
 
             const handleSave = async (e) => {
@@ -212,6 +226,7 @@
                     cognomeNome: formData.cognomeNome.trim().toUpperCase(),
                     codiceFiscale: cfPulito,
                     societaAppartenenza: cleanSocieta(formData.societaAppartenenza),
+                    numeroMaglia: formData.numeroMaglia ? formData.numeroMaglia.trim() : 'Non assegnato',
                     updatedAt: new Date().toISOString()
                 };
 
@@ -243,6 +258,10 @@
                     dataNascita: '',
                     societaAppartenenza: 'MONTERONI VOLLEY A.S.D.',
                     categoria: '',
+                    secondaCategoria: '',
+                    numeroMaglia: 'Non assegnato',
+                    tipoDocumento: '',
+                    numeroDocumento: '',
                     dataCertificato: '',
                     quotaIscrizione: '',
                     note: ''
@@ -323,6 +342,10 @@
                                     dataNascita: parseExcelDate(colF),
                                     societaAppartenenza: cleanSocieta(colP),
                                     categoria: '',
+                                    secondaCategoria: '',
+                                    numeroMaglia: 'Non assegnato',
+                                    tipoDocumento: '',
+                                    numeroDocumento: '',
                                     dataCertificato: parseExcelDate(colAB),
                                     quotaIscrizione: '',
                                     note: ''
@@ -416,7 +439,12 @@
                     const matchSearch = (a.cognomeNome || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                                       (a.codiceFiscale || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                                       (a.societaAppartenenza || '').toLowerCase().includes(searchTerm.toLowerCase());
-                    const matchCat = selectedCategory === 'TUTTE' || (a.categoria || '') === selectedCategory;
+                    
+                    // L'atleta compare se il filtro corrisponde alla prima o alla seconda categoria
+                    const matchCat = selectedCategory === 'TUTTE' || 
+                                     (a.categoria || '') === selectedCategory || 
+                                     (a.secondaCategoria || '') === selectedCategory;
+
                     return matchSearch && matchCat;
                 });
             }, [atlete, searchTerm, selectedCategory]);
@@ -496,6 +524,7 @@
                                         <thead>
                                             <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase tracking-wider">
                                                 <th className="p-3">Matr.</th>
+                                                <th className="p-3">Maglia</th>
                                                 <th className="p-3">Cognome e Nome</th>
                                                 <th className="p-3">Codice Fiscale</th>
                                                 <th className="p-3">Nascita</th>
@@ -509,18 +538,21 @@
                                         <tbody className="divide-y divide-slate-200 text-sm">
                                             {filteredAtlete.map(atleta => {
                                                 const certStatus = getCertStatus(atleta.dataCertificato);
-                                                let certBadgeStyle = 'bg-emerald-100 text-emerald-800'; // Verde (> 2 mesi)
-                                                if (certStatus === 'red') certBadgeStyle = 'bg-red-100 text-red-800'; // Rosso (scaduto/assente)
-                                                else if (certStatus === 'yellow') certBadgeStyle = 'bg-amber-100 text-amber-800'; // Giallo (da oggi a 2 mesi)
+                                                let certBadgeStyle = 'bg-emerald-100 text-emerald-800'; 
+                                                if (certStatus === 'red') certBadgeStyle = 'bg-red-100 text-red-800';
+                                                else if (certStatus === 'yellow') certBadgeStyle = 'bg-amber-100 text-amber-800'; 
+
+                                                const catStyle = CATEGORY_COLORS[atleta.categoria] || CATEGORY_COLORS[''];
 
                                                 return (
                                                     <tr key={atleta.id} className="hover:bg-slate-50 transition">
                                                         <td className="p-3 font-mono text-xs text-slate-500">{atleta.matricola || '-'}</td>
+                                                        <td className="p-3 font-bold text-red-700">{atleta.numeroMaglia || 'Non assegnato'}</td>
                                                         <td className="p-3 font-semibold text-slate-900">{atleta.cognomeNome}</td>
                                                         <td className="p-3 font-mono text-xs text-slate-600">{atleta.codiceFiscale}</td>
                                                         <td className="p-3 text-slate-600">{atleta.dataNascita || '-'}</td>
                                                         <td className="p-3">
-                                                            <span className={`px-2 py-0.5 rounded font-medium text-xs ${atleta.categoria ? 'bg-red-100 text-red-800' : 'bg-slate-100 text-slate-400'}`}>
+                                                            <span className={`px-2 py-0.5 rounded font-semibold text-xs border ${catStyle}`}>
                                                                 {atleta.categoria || 'Non assegnata'}
                                                             </span>
                                                         </td>
@@ -574,14 +606,23 @@
                                             className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
                                         />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-3 gap-3">
                                         <div>
-                                            <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Numero Matricola</label>
+                                            <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Matricola</label>
                                             <input 
                                                 type="text" 
                                                 value={formData.matricola}
                                                 onChange={e => setFormData({...formData, matricola: e.target.value})}
                                                 className="w-full p-2.5 border border-slate-300 rounded-lg text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">N. Maglia</label>
+                                            <input 
+                                                type="text" 
+                                                value={formData.numeroMaglia}
+                                                onChange={e => setFormData({...formData, numeroMaglia: e.target.value})}
+                                                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm font-bold text-red-700"
                                             />
                                         </div>
                                         <div>
@@ -617,16 +658,52 @@
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Categoria</label>
+                                            <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Categoria Principale</label>
                                             <select 
                                                 value={formData.categoria}
                                                 onChange={e => setFormData({...formData, categoria: e.target.value})}
                                                 className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white"
                                             >
-                                                <option value="">Seleziona categoria...</option>
+                                                <option value="">Seleziona...</option>
                                                 {CATEGORIES.filter(c => c !== '').map(c => <option key={c} value={c}>{c}</option>)}
                                             </select>
                                         </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Seconda Categoria</label>
+                                            <select 
+                                                value={formData.secondaCategoria}
+                                                onChange={e => setFormData({...formData, secondaCategoria: e.target.value})}
+                                                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white"
+                                            >
+                                                <option value="">Nessuna</option>
+                                                {CATEGORIES.filter(c => c !== '').map(c => <option key={c} value={c}>{c}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Tipo Documento</label>
+                                            <select 
+                                                value={formData.tipoDocumento}
+                                                onChange={e => setFormData({...formData, tipoDocumento: e.target.value})}
+                                                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white"
+                                            >
+                                                <option value="">Seleziona tipo...</option>
+                                                {DOC_TYPES.filter(d => d !== '').map(d => <option key={d} value={d}>{d}</option>)}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">N. Documento</label>
+                                            <input 
+                                                type="text" 
+                                                value={formData.numeroDocumento}
+                                                onChange={e => setFormData({...formData, numeroDocumento: e.target.value})}
+                                                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm uppercase"
+                                                placeholder="Es. AB12345CD"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Quota Iscrizione</label>
                                             <select 
@@ -638,6 +715,15 @@
                                                 {PAYMENT_STATUSES.filter(p => p !== '').map(p => <option key={p} value={p}>{p}</option>)}
                                             </select>
                                         </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Data Certificato Medico</label>
+                                            <input 
+                                                type="date" 
+                                                value={formData.dataCertificato}
+                                                onChange={e => setFormData({...formData, dataCertificato: e.target.value})}
+                                                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm"
+                                            />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Società Appartenenza (Prestiti)</label>
@@ -645,15 +731,6 @@
                                             type="text" 
                                             value={formData.societaAppartenenza}
                                             onChange={e => setFormData({...formData, societaAppartenenza: e.target.value})}
-                                            className="w-full p-2.5 border border-slate-300 rounded-lg text-sm"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Data Certificato Medico</label>
-                                        <input 
-                                            type="date" 
-                                            value={formData.dataCertificato}
-                                            onChange={e => setFormData({...formData, dataCertificato: e.target.value})}
                                             className="w-full p-2.5 border border-slate-300 rounded-lg text-sm"
                                         />
                                     </div>
