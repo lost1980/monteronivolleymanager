@@ -109,7 +109,6 @@
                 note: ''
             });
 
-            // Gestione Login con input a mano
             const handleLogin = async (e) => {
                 e.preventDefault();
                 setLoginError('');
@@ -127,23 +126,22 @@
                 }
 
                 try {
-                    const { db, doc, getDoc, setDoc, appId } = window.firebaseDB;
+                    const { db, doc, getDoc, appId } = window.firebaseDB;
                     const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', u);
                     const snap = await getDoc(userRef);
 
-                    let currentPassword = 'temp'; // Password iniziale predefinita per nuovi utenti
-                    if (snap.exists()) {
-                        currentPassword = snap.data().password || 'temp';
-                    } else {
-                        // Se l'utente non esiste su Firebase, lo creiamo automaticamente con password 'temp' per comodità
-                        await setDoc(userRef, { password: 'temp' });
+                    if (!snap.exists()) {
+                        setLoginError('Utente non autorizzato');
+                        return;
                     }
+
+                    const currentPassword = snap.data().password || 'temp';
 
                     if (p === currentPassword) {
                         setUser(u);
                         localStorage.setItem('monteroni_user', u);
                     } else {
-                        setLoginError('Password errata');
+                        setLoginError('Credenziali non valide');
                     }
                 } catch (err) {
                     console.error("Errore login:", err);
@@ -158,7 +156,6 @@
                 setLoginPass('');
             };
 
-            // Cambio Password
             const handleChangePassword = async (e) => {
                 e.preventDefault();
                 if (!newPass.trim()) {
@@ -529,7 +526,7 @@
                 });
             }, [atlete, searchTerm, selectedCategory]);
 
-            // Schermata di Login con input a mano libero
+            // Schermata di Login protetta e priva di suggerimenti
             if (!user) {
                 return (
                     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -553,7 +550,7 @@
                                         required 
                                         value={loginUser}
                                         onChange={e => setLoginUser(e.target.value)}
-                                        placeholder="Inserisci username (es. lostuni)"
+                                        placeholder="Inserisci username"
                                         className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 lowercase"
                                     />
                                 </div>
@@ -564,7 +561,7 @@
                                         required 
                                         value={loginPass}
                                         onChange={e => setLoginPass(e.target.value)}
-                                        placeholder="Inserisci password (iniziale: temp)"
+                                        placeholder="Inserisci password"
                                         className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
                                     />
                                 </div>
@@ -572,7 +569,6 @@
                                     Accedi al Gestionale
                                 </button>
                             </form>
-                            <p className="text-center text-xs text-slate-400 mt-6">Utenze predefinite: <span className="font-mono text-slate-600">lostuni, mbellini, aido</span> (Password iniziale: <span className="font-mono font-bold text-slate-600">temp</span>)</p>
                         </div>
                     </div>
                 );
