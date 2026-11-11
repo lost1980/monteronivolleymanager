@@ -130,24 +130,50 @@
                 return str.toUpperCase();
             };
 
-            // Funzione robusta per convertire qualsiasi formato data in oggetto Date valido
+            // Parser universale e robusto per qualsiasi tipo di data
             const parseDateObj = (dateStr) => {
                 if (!dateStr) return null;
+                if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : dateStr;
+
                 let str = dateStr.toString().trim();
-                
-                // Se è formato GG/MM/AAAA
-                if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) {
-                    const [d, m, y] = str.split('/');
-                    const dt = new Date(`${y}-${m}-${d}`);
-                    return isNaN(dt.getTime()) ? null : dt;
+                if (!str) return null;
+
+                // Se contiene "/" (es. 18/02/2027 o 2027/02/18)
+                if (str.includes('/')) {
+                    const parts = str.split('/');
+                    if (parts.length === 3) {
+                        if (parts[0].length === 4) {
+                            // AAAA/MM/GG
+                            const dt = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                            if (!isNaN(dt.getTime())) return dt;
+                        } else {
+                            // GG/MM/AAAA
+                            const dt = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                            if (!isNaN(dt.getTime())) return dt;
+                        }
+                    }
                 }
-                
-                // Se è formato AAAA-MM-GG o standard
-                const dt = new Date(str);
-                return isNaN(dt.getTime()) ? null : dt;
+
+                // Se contiene "-" (es. 2027-02-18 o 18-02-2027)
+                if (str.includes('-')) {
+                    const parts = str.split('-');
+                    if (parts.length === 3) {
+                        if (parts[0].length === 4) {
+                            // AAAA-MM-GG
+                            const dt = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                            if (!isNaN(dt.getTime())) return dt;
+                        } else {
+                            // GG-MM-AAAA
+                            const dt = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                            if (!isNaN(dt.getTime())) return dt;
+                        }
+                    }
+                }
+
+                const fallbackDt = new Date(str);
+                return isNaN(fallbackDt.getTime()) ? null : fallbackDt;
             };
 
-            // Funzione per formattare la data da mostrare a schermo in GG/MM/AAAA
             const formatDateDisplay = (dateStr) => {
                 const dt = parseDateObj(dateStr);
                 if (!dt) return dateStr || 'Assente';
@@ -157,7 +183,7 @@
                 return `${day}/${month}/${year}`;
             };
 
-            // Calcolo colori certificato: Rosso (scaduto/assente), Giallo (da oggi a 2 mesi), Verde (altri)
+            // Logica rigorosa: Rosso (scaduto/assente), Giallo (da oggi a 2 mesi), Verde (> 2 mesi)
             const getCertStatus = (dateStr) => {
                 const expiryDate = parseDateObj(dateStr);
                 if (!expiryDate) return 'red';
@@ -177,7 +203,7 @@
                     return 'yellow'; // In scadenza entro 2 mesi
                 }
 
-                return 'green'; // Valido
+                return 'green'; // Valido oltre 2 mesi
             };
 
             const handleSave = async (e) => {
@@ -208,240 +234,3 @@
                         await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'atlete', currentAtleta.id), payload);
                         showToast("Atleta aggiornata con successo");
                     } else {
-                        await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'atlete'), {
-                            ...payload,
-                            createdAt: new Date().toISOString()
-                        });
-                        showToast("Atleta inserita con successo");
-                    }
-                    setModalOpen(false);
-                    resetForm();
-                } catch (err) {
-                    console.error("Errore salvataggio:", err);
-                    showToast("Errore durante il salvataggio", "error");
-                }
-            };
-
-            const resetForm = () => {
-                setFormData({
-                    cognomeNome: '',
-                    matricola: '',
-                    anno: new Date().getFullYear().toString(),
-                    codiceFiscale: '',
-                    dataNascita: '',
-                    societaAppartenenza: 'MONTERONI VOLLEY A.S.D.',
-                    categoria: '',
-                    dataCertificato: '',
-                    quotaIscrizione: '',
-                    note: ''
-                });
-                setCurrentAtleta(null);
-            };
-
-            const handleDelete = async (id) => {
-                if (!confirm("Sei sicuro di voler eliminare questa atleta?")) return;
-                if (!window.firebaseDB) return;
-                const { db, doc, deleteDoc, appId } = window.firebaseDB;
-                try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'atlete', id));
-                    showToast("Atleta eliminata");
-                } catch (err) {
-                    console.error("Errore eliminazione:", err);
-                    showToast("Errore durante l'eliminazione", "error");
-                }
-            };
-
-            const handleClearDatabase = async () => {
-                if (!confirm("ATTENZIONE: Stai per eliminare TUTTE le atlete presenti nel database cloud. Vuoi procedere?")) return;
-                if (!confirm("Conferma definitiva: Vuoi davvero svuotare completamente l'archivio?")) return;
-                
-                if (!window.firebaseDB) return;
-                const { db, doc, deleteDoc, appId } = window.firebaseDB;
-                setLoading(true);
-
-                try {
-                    for (const atleta of atlete) {
-                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'atlete', atleta.id));
-                    }
-                    showToast("Archivio svuotato con successo");
-                } catch (err) {
-                    console.error("Errore svuotamento database:", err);
-                    showToast("Errore durante lo svuotamento", "error");
-                } finally {
-                    setLoading(false);
-                }
-            };
-
-            const handleFileUpload = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                const reader = new FileReader();
-                reader.onload = (evt) => {
-                    try {
-                        const data = new Uint8Array(evt.target.result);
-                        const workbook = XLSX.read(data, { type: 'array' });
-                        const firstSheetName = workbook.SheetNames[0];
-                        const worksheet = workbook.Sheets[firstSheetName];
-                        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-                        const parsedAtlete = [];
-                        rows.forEach((row) => {
-                            const colA = row[0]; 
-                            const colB = row[1]; 
-                            const colC = row[2]; 
-                            const colE = row[4]; 
-                            const colF = row[5]; 
-                            const colP = row[15]; 
-                            const colAB = row[27]; 
-
-                            if (colC && colE) {
-                                const nomeStr = colC.toString().trim().toUpperCase();
-                                const cfStr = colE.toString().trim().toUpperCase();
-
-                                if (nomeStr.includes('COGNOME') || cfStr.includes('CODICE') || cfStr.includes('CF')) {
-                                    return;
-                                }
-
-                                parsedAtlete.push({
-                                    anno: colA ? colA.toString() : new Date().getFullYear().toString(),
-                                    matricola: colB ? colB.toString() : '',
-                                    cognomeNome: nomeStr,
-                                    codiceFiscale: cfStr,
-                                    dataNascita: parseExcelDate(colF),
-                                    societaAppartenenza: cleanSocieta(colP),
-                                    categoria: '',
-                                    dataCertificato: parseExcelDate(colAB),
-                                    quotaIscrizione: '',
-                                    note: ''
-                                });
-                            }
-                        });
-
-                        if (parsedAtlete.length === 0) {
-                            alert("Nessuna atleta trovata nel file. Verifica la corrispondenza delle colonne.");
-                            return;
-                        }
-
-                        setImportPreview(parsedAtlete);
-                        setImportModalOpen(true);
-                    } catch (err) {
-                        console.error("Errore lettura file:", err);
-                        alert("Errore nella lettura del file Excel/CSV.");
-                    }
-                };
-                reader.readAsArrayBuffer(file);
-            };
-
-            const parseExcelDate = (val) => {
-                if (!val) return '';
-                if (typeof val === 'number') {
-                    const date = XLSX.SSF.parse_date_code(val);
-                    if (date) {
-                        return `${String(date.d).padStart(2, '0')}/${String(date.m).padStart(2, '0')}/${date.y}`;
-                    }
-                }
-                return val.toString().trim();
-            };
-
-            const confirmImport = async () => {
-                if (!window.firebaseDB || importPreview.length === 0) return;
-                setImporting(true);
-
-                const { db, collection, writeBatch, doc, appId } = window.firebaseDB;
-                let duplicateCount = 0;
-                let successCount = 0;
-
-                try {
-                    const existingCFs = new Set(atlete.map(a => (a.codiceFiscale || '').trim().toUpperCase()));
-                    const validItems = [];
-
-                    for (const atleta of importPreview) {
-                        const cf = atleta.codiceFiscale;
-                        if (existingCFs.has(cf)) {
-                            duplicateCount++;
-                            continue;
-                        }
-                        validItems.push(atleta);
-                        existingCFs.add(cf);
-                    }
-
-                    const chunks = [];
-                    for (let i = 0; i < validItems.length; i += 40) {
-                        chunks.push(validItems.slice(i, i + 40));
-                    }
-
-                    for (const chunk of chunks) {
-                        const batch = writeBatch(db);
-                        for (const atleta of chunk) {
-                            const newDocRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'atlete'));
-                            batch.set(newDocRef, {
-                                ...atleta,
-                                createdAt: new Date().toISOString()
-                            });
-                        }
-                        await batch.commit();
-                        successCount += chunk.length;
-                    }
-
-                    if (duplicateCount > 0) {
-                        alert(`Rilevate ${duplicateCount} atlete già presenti in archivio ("Atleta già inserita"). Saltate per evitare duplicati.`);
-                    }
-
-                    showToast(`Importate con successo ${successCount} atlete!`);
-                    setImportModalOpen(false);
-                    setImportPreview([]);
-                } catch (err) {
-                    console.error("Errore importazione batch:", err);
-                    showToast("Errore durante l'importazione", "error");
-                } finally {
-                    setImporting(false);
-                }
-            };
-
-            const filteredAtlete = useMemo(() => {
-                return atlete.filter(a => {
-                    const matchSearch = (a.cognomeNome || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                      (a.codiceFiscale || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                      (a.societaAppartenenza || '').toLowerCase().includes(searchTerm.toLowerCase());
-                    const matchCat = selectedCategory === 'TUTTE' || (a.categoria || '') === selectedCategory;
-                    return matchSearch && matchCat;
-                });
-            }, [atlete, searchTerm, selectedCategory]);
-
-            return (
-                <div className="min-h-screen bg-slate-100 flex flex-col">
-                    {toast && (
-                        <div className={`fixed top-5 right-5 z-50 px-4 py-3 rounded-xl shadow-lg text-white font-medium flex items-center gap-2 ${toast.type === 'error' ? 'bg-red-600' : 'bg-emerald-600'}`}>
-                            {toast.message}
-                        </div>
-                    )}
-
-                    <header className="bg-red-700 text-white shadow-md">
-                        <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
-                            <div className="flex items-center gap-3">
-                                <img src="./logo.png" alt="Logo ASD Monteroni Volley" className="w-12 h-12 object-contain bg-white rounded-full p-1 shadow" />
-                                <div>
-                                    <h1 className="text-xl font-bold tracking-wider">ASD MONTERONI VOLLEY</h1>
-                                    <p className="text-xs text-red-100">Gestione Dirigenziale Atlete</p>
-                                </div>
-                            </div>
-                            <div className="flex flex-wrap gap-2 items-center">
-                                <label className="cursor-pointer bg-white text-red-700 hover:bg-red-50 font-semibold px-3 py-2 rounded-lg shadow text-xs sm:text-sm flex items-center gap-2 transition">
-                                    📁 Importa Excel / CSV
-                                    <input type="file" accept=".xlsx, .xls, .csv" onChange={handleFileUpload} className="hidden" />
-                                </label>
-                                <button onClick={() => { resetForm(); setModalOpen(true); }} className="bg-red-800 hover:bg-red-900 text-white px-3 py-2 rounded-lg shadow text-xs sm:text-sm font-semibold flex items-center gap-2 border border-red-600 transition">
-                                    ➕ Nuova Atleta
-                                </button>
-                                {atlete.length > 0 && (
-                                    <button onClick={handleClearDatabase} className="bg-slate-800 hover:bg-slate-900 text-red-400 px-3 py-2 rounded-lg shadow text-xs sm:text-sm font-semibold flex items-center gap-2 border border-slate-700 transition" title="Elimina tutte le atlete dal database">
-                                        🗑️ Svuota Archivio
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </header>
-
-                    <main className="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
-                        <div className="bg-white p-4 rounded-xl shadow-sm mb-6 flex flex-col md:flex-row gap-4 justify-between items-center">
