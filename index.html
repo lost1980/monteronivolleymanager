@@ -57,24 +57,15 @@
         const CATEGORIES = ['B2', '1D', 'U19', 'U17', 'U15', 'U13'];
         const PAYMENT_STATUSES = ['NON DOVUTO', 'DA PAGARE', 'PAGATO'];
 
+        // Logo originale fedele all'immagine fornita
         function MonteroniLogo({ className = "w-10 h-10" }) {
           return (
-            <div className="relative inline-block">
-              <svg className={className} viewBox="0 0 400 450" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <g transform="translate(100, 10) scale(0.5)">
-                  <circle cx="200" cy="150" r="120" fill="white" stroke="#B81D24" strokeWidth="16"/>
-                  <path d="M 200 30 C 230 80, 230 140, 200 270" stroke="#B81D24" strokeWidth="14" fill="none" />
-                  <path d="M 110 80 C 180 120, 220 180, 290 220" stroke="#B81D24" strokeWidth="14" fill="none" />
-                  <path d="M 290 80 C 220 120, 180 180, 110 220" stroke="#B81D24" strokeWidth="14" fill="none" />
-                </g>
-                <path d="M 60 120 Q 200 70 340 120 Q 380 260 200 420 Q 20 260 60 120 Z" fill="#B81D24" stroke="white" strokeWidth="10"/>
-                <path d="M 75 132 Q 200 88 325 132 Q 360 255 200 400 Q 40 255 75 132 Z" fill="white" />
-                <path d="M 82 340 Q 130 280 170 330 Q 200 270 230 330 Q 270 290 318 340 L 318 350 Q 200 400 200 400 Z" fill="#B81D24" />
-                <text x="200" y="210" textAnchor="middle" fill="#B81D24" fontFamily="Impact, sans-serif" fontSize="42" fontWeight="900">MONTERONI</text>
-                <text x="200" y="250" textAnchor="middle" fill="#B81D24" fontFamily="Impact, sans-serif" fontSize="34" fontWeight="bold">VOLLEY</text>
-                <text x="200" y="380" textAnchor="middle" fill="white" fontFamily="Arial, sans-serif" fontSize="28" fontWeight="bold">ASD</text>
-              </svg>
-            </div>
+            <img 
+              src="./logo.png" 
+              alt="ASD Monteroni Volley" 
+              className={`${className} object-contain rounded-xl`}
+              onError={(e) => { e.target.src = "https://placehold.co/100x100/B81D24/FFFFFF?text=ASD"; }}
+            />
           );
         }
 
@@ -452,7 +443,7 @@
                 <div className="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8 flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="p-1.5 bg-white rounded-2xl shadow-md">
-                      <MonteroniLogo className="w-9 h-10" />
+                      <MonteroniLogo className="w-10 h-10" />
                     </div>
                     <div>
                       <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white">ASD Monteroni Volley Manager</h1>
