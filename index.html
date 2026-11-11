@@ -15,7 +15,12 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-900 min-h-screen">
-    <div id="root"></div>
+    <div id="root">
+        <div style="padding: 40px; text-align: center; font-family: sans-serif; color: #555;">
+            <h2>Caricamento applicazione in corso...</h2>
+            <p>Se la schermata persiste, verifica la console del browser (F12).</p>
+        </div>
+    </div>
 
     <!-- Firebase SDKs & Configurazione Reale -->
     <script type="module">
@@ -32,18 +37,22 @@
             appId: "1:167180215755:web:ff3712b5dc0bc6879d424e"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const appId = 'monteroni-volley-atlete';
+        try {
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            const appId = 'monteroni-volley-atlete';
 
-        window.firebaseDB = { db, auth, collection, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, doc, appId };
-        
-        signInAnonymously(auth).catch((error) => {
-            console.error("Errore autenticazione anonima:", error);
-        });
+            window.firebaseDB = { db, auth, collection, onSnapshot, addDoc, updateDoc, deleteDoc, writeBatch, doc, appId };
+            
+            signInAnonymously(auth).catch((error) => {
+                console.error("Errore autenticazione anonima:", error);
+            });
 
-        window.dispatchEvent(new Event('firebase-ready'));
+            window.dispatchEvent(new Event('firebase-ready'));
+        } catch (err) {
+            console.error("Errore inizializzazione Firebase:", err);
+        }
     </script>
 
     <!-- Codice dell'Applicazione React -->
@@ -664,7 +673,12 @@
             );
         }
 
-        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+        try {
+            ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+        } catch (err) {
+            console.error("Errore fatale rendering React:", err);
+            document.getElementById('root').innerHTML = '<div style="padding: 40px; color: red; text-align: center;"><h3>Errore di caricamento applicazione.</h3><p>' + err.message + '</p></div>';
+        }
     </script>
 </body>
 </html>
