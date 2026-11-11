@@ -109,15 +109,15 @@
                 note: ''
             });
 
-            // Gestione Login
+            // Gestione Login con input a mano
             const handleLogin = async (e) => {
                 e.preventDefault();
                 setLoginError('');
                 const u = loginUser.trim().toLowerCase();
                 const p = loginPass.trim();
 
-                if (!['lostuni', 'mbellini', 'aido'].includes(u)) {
-                    setLoginError('Utente non autorizzato');
+                if (!u) {
+                    setLoginError('Inserisci un nome utente');
                     return;
                 }
 
@@ -131,11 +131,11 @@
                     const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'config', u);
                     const snap = await getDoc(userRef);
 
-                    let currentPassword = 'temp'; // Password iniziale predefinita
+                    let currentPassword = 'temp'; // Password iniziale predefinita per nuovi utenti
                     if (snap.exists()) {
                         currentPassword = snap.data().password || 'temp';
                     } else {
-                        // Inizializza l'utente su Firestore con password 'temp' se non esiste
+                        // Se l'utente non esiste su Firebase, lo creiamo automaticamente con password 'temp' per comodità
                         await setDoc(userRef, { password: 'temp' });
                     }
 
@@ -529,7 +529,7 @@
                 });
             }, [atlete, searchTerm, selectedCategory]);
 
-            // Schermata di Login se non autenticato
+            // Schermata di Login con input a mano libero
             if (!user) {
                 return (
                     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -548,25 +548,22 @@
                             <form onSubmit={handleLogin} className="space-y-4">
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Utente</label>
-                                    <select 
+                                    <input 
+                                        type="text" 
+                                        required 
                                         value={loginUser}
                                         onChange={e => setLoginUser(e.target.value)}
-                                        required
-                                        className="w-full p-3 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-red-500"
-                                    >
-                                        <option value="">Seleziona utente...</option>
-                                        <option value="lostuni">lostuni</option>
-                                        <option value="mbellini">mbellini</option>
-                                        <option value="aido">aido</option>
-                                    </select>
+                                        placeholder="Inserisci username (es. lostuni)"
+                                        className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500 lowercase"
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Password</label>
                                     <input 
                                         type="password" 
+                                        required 
                                         value={loginPass}
                                         onChange={e => setLoginPass(e.target.value)}
-                                        required
                                         placeholder="Inserisci password (iniziale: temp)"
                                         className="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-red-500"
                                     />
@@ -575,7 +572,7 @@
                                     Accedi al Gestionale
                                 </button>
                             </form>
-                            <p className="text-center text-xs text-slate-400 mt-6">Password iniziale predefinita per il primo accesso: <span className="font-mono font-bold text-slate-600">temp</span></p>
+                            <p className="text-center text-xs text-slate-400 mt-6">Utenze predefinite: <span className="font-mono text-slate-600">lostuni, mbellini, aido</span> (Password iniziale: <span className="font-mono font-bold text-slate-600">temp</span>)</p>
                         </div>
                     </div>
                 );
