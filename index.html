@@ -1,1003 +1,1156 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ASD Monteroni Volley Manager</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel per compilar JSX nel browser -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- SheetJS per supporto completo Excel (.xlsx, .xls) e CSV -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+import React, { useState, useEffect, useMemo } from 'react';
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  signInAnonymously, 
+  signInWithCustomToken, 
+  onAuthStateChanged 
+} from 'firebase/auth';
+import { 
+  getFirestore, 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  serverTimestamp 
+} from 'firebase/firestore';
+import { 
+  Users, 
+  UserPlus, 
+  Search, 
+  Filter, 
+  AlertTriangle, 
+  CheckCircle, 
+  XCircle, 
+  Calendar, 
+  CreditCard, 
+  Download, 
+  Upload,
+  Edit3, 
+  Trash2, 
+  X, 
+  RefreshCw,
+  ShieldAlert,
+  Smartphone,
+  Share,
+  PlusSquare,
+  FileSpreadsheet,
+  Check
+} from 'lucide-react';
+
+// Setup Firebase safely
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+  apiKey: "demo-api-key",
+  authDomain: "demo-app.firebaseapp.com",
+  projectId: "demo-app",
+  storageBucket: "demo-app.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abcdef"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'pallavolo-atlete-app';
+
+const CATEGORIES = ['B2', '1D', 'U19', 'U17', 'U15', 'U13'];
+const PAYMENT_STATUSES = ['NON DOVUTO', 'DA PAGARE', 'PAGATO'];
+
+// Componente Logo Vettoriale ASD Monteroni Volley
+function MonteroniLogo({ className = "w-10 h-10" }) {
+  return (
+    <svg className={className} viewBox="0 0 400 450" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Pallone da Pallavolo Superiore */}
+      <g transform="translate(100, 10) scale(0.5)">
+        <circle cx="200" cy="150" r="120" fill="white" stroke="#B81D24" strokeWidth="16"/>
+        <path d="M 200 30 C 230 80, 230 140, 200 270" stroke="#B81D24" strokeWidth="14" fill="none" />
+        <path d="M 110 80 C 180 120, 220 180, 290 220" stroke="#B81D24" strokeWidth="14" fill="none" />
+        <path d="M 290 80 C 220 120, 180 180, 110 220" stroke="#B81D24" strokeWidth="14" fill="none" />
+      </g>
+      
+      {/* Scudo Principale Rosso */}
+      <path 
+        d="M 60 120 Q 200 70 340 120 Q 380 260 200 420 Q 20 260 60 120 Z" 
+        fill="#B81D24" 
+        stroke="white" 
+        strokeWidth="10"
+      />
+      
+      {/* Sfondo Bianco Interno Scudo */}
+      <path 
+        d="M 75 132 Q 200 88 325 132 Q 360 255 200 400 Q 40 255 75 132 Z" 
+        fill="white" 
+      />
+
+      {/* Montagne Rosse in Basso */}
+      <path 
+        d="M 82 340 Q 130 280 170 330 Q 200 270 230 330 Q 270 290 318 340 L 318 350 Q 200 400 200 400 Z" 
+        fill="#B81D24" 
+      />
+
+      {/* Testo MONTERONI VOLLEY */}
+      <text x="200" y="210" textAnchor="middle" fill="#B81D24" fontFamily="Impact, sans-serif" fontSize="42" fontWeight="900" letterSpacing="1">
+        MONTERONI
+      </text>
+      <text x="200" y="250" textAnchor="middle" fill="#B81D24" fontFamily="Impact, sans-serif" fontSize="34" fontWeight="bold" letterSpacing="2">
+        VOLLEY
+      </text>
+
+      {/* Stelle */}
+      <g fill="#B81D24" transform="translate(160, 265)">
+        <polygon points="10,0 13,7 20,7 14,11 16,18 10,13 4,18 6,11 0,7 7,7"/>
+      </g>
+      <g fill="#B81D24" transform="translate(220, 265)">
+        <polygon points="10,0 13,7 20,7 14,11 16,18 10,13 4,18 6,11 0,7 7,7"/>
+      </g>
+
+      {/* Felce (Sinistra) */}
+      <path d="M 120 300 Q 100 240 80 210 Q 110 230 130 290 Z" fill="#B81D24" />
+      <path d="M 100 250 L 85 240 M 105 260 L 90 253 M 110 270 L 95 265" stroke="#B81D24" strokeWidth="4"/>
+
+      {/* Albero (Destra) */}
+      <circle cx="280" cy="270" r="28" fill="#B81D24" />
+      <rect x="275" y="295" width="10" height="25" fill="#B81D24" />
+
+      {/* Testo ASD In Basso */}
+      <text x="200" y="380" textAnchor="middle" fill="white" fontFamily="Arial, sans-serif" fontSize="28" fontWeight="bold">
+        ASD
+      </text>
+    </svg>
+  );
+}
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [atlete, setAtlete] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const [activeTab, setActiveTab] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [certFilter, setCertFilter] = useState('ALL'); 
+  const [paymentFilter, setPaymentFilter] = useState('ALL'); 
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [currentAthlete, setCurrentAthlete] = useState(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+
+  const [importRows, setImportRows] = useState([]);
+  const [importing, setImporting] = useState(false);
+
+  const [formData, setFormData] = useState({
+    nome: '',
+    cognome: '',
+    codiceFiscale: '',
+    dataNascita: '',
+    categorie: [],
+    scadenzaCertificato: '',
+    pagamentoRata1: 'NON DOVUTO',
+    pagamentoRata2: 'NON DOVUTO',
+    note: ''
+  });
+
+  useEffect(() => {
+    const initAuth = async () => {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (err) {
+        console.error("Auth Error:", err);
+        setError("Errore nella connessione al server di autenticazione.");
+      }
+    };
+    initAuth();
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    setLoading(true);
+    const atleteRef = collection(db, 'artifacts', appId, 'public', 'data', 'atlete');
     
-    <!-- PWA Icon Meta Tag -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%23B81D24'/><path d='M35 25 L65 25 L50 75 Z' fill='white'/><circle cx='80' cy='20' r='12' fill='%23475569'/><path d='M76 20 L84 20 M80 16 L80 24' stroke='white' stroke-width='3'/></svg>">
+    const unsubscribe = onSnapshot(
+      atleteRef,
+      (snapshot) => {
+        const list = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setAtlete(list);
+        setLoading(false);
+      },
+      (err) => {
+        console.error("Firestore Error:", err);
+        setError("Impossibile caricare i dati delle atlete.");
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const getCertStatus = (dateString) => {
+    if (!dateString) return { status: 'UNKNOWN', label: 'Non Inserito', color: 'bg-slate-100 text-slate-700 border-slate-300' };
     
-    <!-- Firebase SDKs compatibili -->
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const certDate = new Date(dateString);
+    certDate.setHours(0, 0, 0, 0);
 
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap');
-      body { font-family: 'Inter', sans-serif; }
-      .no-scrollbar::-webkit-scrollbar { display: none; }
-      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    </style>
-</head>
-<body class="bg-slate-50 text-slate-900">
-    <div id="root"></div>
+    const diffDays = Math.ceil((certDate - today) / (1000 * 60 * 60 * 24));
 
-    <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+    if (diffDays < 0) {
+      return { status: 'EXPIRED', label: 'Scaduto', color: 'bg-red-100 text-red-700 border-red-300 shadow-sm font-bold', days: Math.abs(diffDays) };
+    } else if (diffDays <= 30) {
+      return { status: 'EXPIRING', label: `In Scadenza (${diffDays} gg)`, color: 'bg-amber-100 text-amber-800 border-amber-300 shadow-sm font-semibold', days: diffDays };
+    } else {
+      return { status: 'VALID', label: 'Valido', color: 'bg-emerald-100 text-emerald-800 border-emerald-300 font-medium', days: diffDays };
+    }
+  };
 
-        // Configurazione Firebase
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-          apiKey: "demo-api-key",
-          authDomain: "demo-app.firebaseapp.com",
-          projectId: "demo-app",
-          storageBucket: "demo-app.appspot.com",
-          messagingSenderId: "123456789",
-          appId: "1:123456789:web:abcdef"
+  const getPaymentBadge = (status) => {
+    const st = status || 'NON DOVUTO';
+    switch (st) {
+      case 'PAGATO':
+        return { label: 'PAGATO', color: 'bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold' };
+      case 'DA PAGARE':
+        return { label: 'DA PAGARE', color: 'bg-red-100 text-red-800 border-red-300 font-bold' };
+      case 'NON DOVUTO':
+      default:
+        return { label: 'NON DOVUTO', color: 'bg-slate-100 text-slate-500 border-slate-200' };
+    }
+  };
+
+  const handleOpenModal = (athlete = null) => {
+    if (athlete) {
+      setCurrentAthlete(athlete);
+      setFormData({
+        nome: athlete.nome || '',
+        cognome: athlete.cognome || '',
+        codiceFiscale: athlete.codiceFiscale || '',
+        dataNascita: athlete.dataNascita || '',
+        categorie: athlete.categorie || [],
+        scadenzaCertificato: athlete.scadenzaCertificato || '',
+        pagamentoRata1: athlete.pagamentoRata1 || 'NON DOVUTO',
+        pagamentoRata2: athlete.pagamentoRata2 || 'NON DOVUTO',
+        note: athlete.note || ''
+      });
+    } else {
+      setCurrentAthlete(null);
+      setFormData({
+        nome: '',
+        cognome: '',
+        codiceFiscale: '',
+        dataNascita: '',
+        categorie: activeTab !== 'ALL' ? [activeTab] : [],
+        scadenzaCertificato: '',
+        pagamentoRata1: 'NON DOVUTO',
+        pagamentoRata2: 'NON DOVUTO',
+        note: ''
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleCategoryToggle = (cat) => {
+    setFormData(prev => {
+      const exists = prev.categorie.includes(cat);
+      if (exists) {
+        return { ...prev, categorie: prev.categorie.filter(c => c !== cat) };
+      } else {
+        return { ...prev, categorie: [...prev.categorie, cat] };
+      }
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.nome || !formData.cognome) {
+      alert("Nome e Cognome sono obbligatori.");
+      return;
+    }
+
+    try {
+      const dataToSave = {
+        ...formData,
+        codiceFiscale: formData.codiceFiscale.toUpperCase().trim(),
+        updatedAt: serverTimestamp()
+      };
+
+      if (currentAthlete) {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'atlete', currentAthlete.id);
+        await updateDoc(docRef, dataToSave);
+      } else {
+        const atleteRef = collection(db, 'artifacts', appId, 'public', 'data', 'atlete');
+        await addDoc(atleteRef, {
+          ...dataToSave,
+          createdAt: serverTimestamp()
+        });
+      }
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error("Errore salvataggio:", err);
+      alert("Si è verificato un errore durante il salvataggio dei dati.");
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target.result;
+      const lines = text.split(/\r\n|\n/);
+      const dataLines = lines.slice(5).filter(line => line.trim().length > 0);
+
+      const parsedData = dataLines.map((line) => {
+        const delimiter = line.includes(';') ? ';' : ',';
+        const cols = line.split(delimiter).map(c => c.trim().replace(/^"(.*)"$/, '$1'));
+
+        const cognome = cols[0] || '';
+        const nome = cols[1] || '';
+        const codiceFiscale = (cols[2] || '').toUpperCase();
+        const dataNascita = cols[3] || '';
+        const catRaw = cols[4] || '';
+        const certDate = cols[5] || '';
+        const r1 = (cols[6] || '').toUpperCase();
+        const r2 = (cols[7] || '').toUpperCase();
+
+        const categorie = catRaw ? catRaw.split(/[\s,/]+/).filter(c => CATEGORIES.includes(c.toUpperCase())) : [];
+
+        let pagamentoRata1 = 'NON DOVUTO';
+        if (r1.includes('PAGAT') || r1 === 'OK' || r1 === 'SI') pagamentoRata1 = 'PAGATO';
+        else if (r1.includes('DA PAG') || r1 === 'NO') pagamentoRata1 = 'DA PAGARE';
+
+        let pagamentoRata2 = 'NON DOVUTO';
+        if (r2.includes('PAGAT') || r2 === 'OK' || r2 === 'SI') pagamentoRata2 = 'PAGATO';
+        else if (r2.includes('DA PAG') || r2 === 'NO') pagamentoRata2 = 'DA PAGARE';
+
+        return {
+          cognome,
+          nome,
+          codiceFiscale,
+          dataNascita,
+          categorie: categorie.length > 0 ? categorie : (activeTab !== 'ALL' ? [activeTab] : []),
+          scadenzaCertificato: certDate,
+          pagamentoRata1,
+          pagamentoRata2,
+          note: cols[8] || ''
         };
+      }).filter(item => item.nome || item.cognome);
 
-        if (!firebase.apps.length) {
-          firebase.initializeApp(firebaseConfig);
-        }
-        
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'pallavolo-atlete-app';
+      setImportRows(parsedData);
+      setIsImportModalOpen(true);
+    };
 
-        const CATEGORIES = ['B2', '1D', 'U19', 'U17', 'U15', 'U13'];
-        const PAYMENT_STATUSES = ['NON DOVUTO', 'DA PAGARE', 'PAGATO'];
+    reader.readAsText(file);
+    e.target.value = null;
+  };
 
-        // Logo Vettoriale ASD Monteroni Volley
-        function MonteroniLogo({ className = "w-10 h-10" }) {
-          return (
-            <div className="relative inline-block">
-              <svg className={className} viewBox="0 0 400 450" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <g transform="translate(100, 10) scale(0.5)">
-                  <circle cx="200" cy="150" r="120" fill="white" stroke="#B81D24" strokeWidth="16"/>
-                  <path d="M 200 30 C 230 80, 230 140, 200 270" stroke="#B81D24" strokeWidth="14" fill="none" />
-                  <path d="M 110 80 C 180 120, 220 180, 290 220" stroke="#B81D24" strokeWidth="14" fill="none" />
-                  <path d="M 290 80 C 220 120, 180 180, 110 220" stroke="#B81D24" strokeWidth="14" fill="none" />
-                </g>
-                <path d="M 60 120 Q 200 70 340 120 Q 380 260 200 420 Q 20 260 60 120 Z" fill="#B81D24" stroke="white" strokeWidth="10"/>
-                <path d="M 75 132 Q 200 88 325 132 Q 360 255 200 400 Q 40 255 75 132 Z" fill="white" />
-                <path d="M 82 340 Q 130 280 170 330 Q 200 270 230 330 Q 270 290 318 340 L 318 350 Q 200 400 200 400 Z" fill="#B81D24" />
-                <text x="200" y="210" textAnchor="middle" fill="#B81D24" fontFamily="Impact, sans-serif" fontSize="42" fontWeight="900">MONTERONI</text>
-                <text x="200" y="250" textAnchor="middle" fill="#B81D24" fontFamily="Impact, sans-serif" fontSize="34" fontWeight="bold">VOLLEY</text>
-                <text x="200" y="380" textAnchor="middle" fill="white" fontFamily="Arial, sans-serif" fontSize="28" fontWeight="bold">ASD</text>
-              </svg>
+  const handleConfirmImport = async () => {
+    if (importRows.length === 0) return;
+    setImporting(true);
+
+    try {
+      const atleteRef = collection(db, 'artifacts', appId, 'public', 'data', 'atlete');
+      for (const item of importRows) {
+        await addDoc(atleteRef, {
+          ...item,
+          createdAt: serverTimestamp()
+        });
+      }
+      setIsImportModalOpen(false);
+      setImportRows([]);
+      alert(`Importate con successo ${importRows.length} atlete!`);
+    } catch (err) {
+      console.error("Errore importazione:", err);
+      alert("Si è verificato un errore durante l'importazione.");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'atlete', id);
+      await deleteDoc(docRef);
+      setDeleteConfirmId(null);
+    } catch (err) {
+      console.error("Errore eliminazione:", err);
+      alert("Errore durante l'eliminazione dell'atleta.");
+    }
+  };
+
+  const filteredAtlete = useMemo(() => {
+    return atlete.filter(item => {
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = 
+        !searchQuery ||
+        (item.nome && item.nome.toLowerCase().includes(searchLower)) ||
+        (item.cognome && item.cognome.toLowerCase().includes(searchLower)) ||
+        (item.codiceFiscale && item.codiceFiscale.toLowerCase().includes(searchLower));
+
+      const matchesTab = activeTab === 'ALL' || (item.categorie && item.categorie.includes(activeTab));
+
+      const certInfo = getCertStatus(item.scadenzaCertificato);
+      let matchesCert = true;
+      if (certFilter === 'EXPIRED') matchesCert = certInfo.status === 'EXPIRED';
+      if (certFilter === 'EXPIRING') matchesCert = certInfo.status === 'EXPIRING';
+      if (certFilter === 'VALID') matchesCert = certInfo.status === 'VALID';
+      if (certFilter === 'PROBLEMATIC') matchesCert = certInfo.status === 'EXPIRED' || certInfo.status === 'EXPIRING';
+
+      let matchesPayment = true;
+      const r1 = item.pagamentoRata1 || 'NON DOVUTO';
+      const r2 = item.pagamentoRata2 || 'NON DOVUTO';
+
+      if (paymentFilter === 'PENDING_1') matchesPayment = r1 === 'DA PAGARE';
+      if (paymentFilter === 'PENDING_2') matchesPayment = r2 === 'DA PAGARE';
+      if (paymentFilter === 'PENDING_ANY') matchesPayment = r1 === 'DA PAGARE' || r2 === 'DA PAGARE';
+
+      return matchesSearch && matchesTab && matchesCert && matchesPayment;
+    });
+  }, [atlete, searchQuery, activeTab, certFilter, paymentFilter]);
+
+  const stats = useMemo(() => {
+    let expired = 0;
+    let expiring = 0;
+    let pendingPayments = 0;
+
+    atlete.forEach(item => {
+      const status = getCertStatus(item.scadenzaCertificato).status;
+      if (status === 'EXPIRED') expired++;
+      if (status === 'EXPIRING') expiring++;
+
+      if (item.pagamentoRata1 === 'DA PAGARE' || item.pagamentoRata2 === 'DA PAGARE') {
+        pendingPayments++;
+      }
+    });
+
+    return { total: atlete.length, expired, expiring, pendingPayments };
+  }, [atlete]);
+
+  const exportCSV = () => {
+    if (atlete.length === 0) return;
+
+    const headers = ["Cognome", "Nome", "Codice Fiscale", "Data Nascita", "Categorie", "Scadenza Certificato", "I Rata", "II Rata", "Note"];
+    const rows = filteredAtlete.map(a => [
+      `"${a.cognome || ''}"`,
+      `"${a.nome || ''}"`,
+      `"${a.codiceFiscale || ''}"`,
+      `"${a.dataNascita || ''}"`,
+      `"${(a.categorie || []).join(', ')}"`,
+      `"${a.scadenzaCertificato || ''}"`,
+      `"${a.pagamentoRata1 || 'NON DOVUTO'}"`,
+      `"${a.pagamentoRata2 || 'NON DOVUTO'}"`,
+      `"${(a.note || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(";"), ...rows.map(e => e.join(";"))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `atlete_pallavolo_${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-12">
+      <header className="bg-gradient-to-r from-red-800 via-[#B81D24] to-red-900 text-white shadow-md sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8 flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="p-1.5 bg-white rounded-2xl shadow-md">
+              <MonteroniLogo className="w-9 h-10" />
             </div>
-          );
-        }
+            <div>
+              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white">ASD Monteroni Volley Manager</h1>
+              <p className="text-xs text-red-100">Database Condiviso Atlete</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setIsInstallModalOpen(true)}
+              className="flex items-center space-x-1.5 bg-white/10 hover:bg-white/20 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all"
+              title="Installa come App su Smartphone"
+            >
+              <Smartphone className="w-4 h-4 text-amber-300" />
+              <span className="hidden sm:inline">Installa App</span>
+            </button>
 
-        function App() {
-          const [user, setUser] = useState(null);
-          const [atlete, setAtlete] = useState([]);
-          const [loading, setLoading] = useState(true);
+            <button
+              onClick={() => handleOpenModal()}
+              className="flex items-center space-x-1.5 bg-white hover:bg-red-50 text-red-700 px-3.5 py-2 rounded-xl font-bold shadow-lg shadow-black/10 active:scale-95 transition-all text-xs sm:text-sm"
+            >
+              <UserPlus className="w-4 h-4 text-red-700" />
+              <span className="hidden sm:inline">Nuova Atleta</span>
+              <span className="sm:hidden">Nuova</span>
+            </button>
+          </div>
+        </div>
 
-          const [activeTab, setActiveTab] = useState('ALL');
-          const [searchQuery, setSearchQuery] = useState('');
-          const [certFilter, setCertFilter] = useState('ALL');
-          const [paymentFilter, setPaymentFilter] = useState('ALL');
-
-          const [isModalOpen, setIsModalOpen] = useState(false);
-          const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-          const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
-          const [currentAthlete, setCurrentAthlete] = useState(null);
-          const [deleteConfirmId, setDeleteConfirmId] = useState(null);
-
-          const [importRows, setImportRows] = useState([]);
-          const [importing, setImporting] = useState(false);
-
-          const [formData, setFormData] = useState({
-            nomeCompleto: '',
-            matricola: '',
-            anno: '',
-            codiceFiscale: '',
-            dataNascita: '',
-            societaAppartenenza: '',
-            categorie: [],
-            scadenzaCertificato: '',
-            pagamentoRata1: 'NON DOVUTO',
-            pagamentoRata2: 'NON DOVUTO',
-            note: ''
-          });
-
-          useEffect(() => {
-            const initAuth = async () => {
-              try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                  await auth.signInWithCustomToken(__initial_auth_token);
-                } else {
-                  await auth.signInAnonymously();
-                }
-              } catch (err) {
-                console.error("Auth Error:", err);
-              }
-            };
-            initAuth();
-            const unsubscribe = auth.onAuthStateChanged((u) => {
-              setUser(u);
-            });
-            return () => unsubscribe();
-          }, []);
-
-          useEffect(() => {
-            if (!user) return;
-
-            setLoading(true);
-            const atleteRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('atlete');
-            
-            const unsubscribe = atleteRef.onSnapshot(
-              (snapshot) => {
-                const list = snapshot.docs.map(doc => ({
-                  id: doc.id,
-                  ...doc.data()
-                }));
-                setAtlete(list);
-                setLoading(false);
-              },
-              (err) => {
-                console.error("Firestore Error:", err);
-                setLoading(false);
-              }
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex overflow-x-auto no-scrollbar space-x-1 pt-1">
+          <button
+            onClick={() => setActiveTab('ALL')}
+            className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-xl transition-all flex-shrink-0 flex items-center space-x-2 ${
+              activeTab === 'ALL'
+                ? 'bg-slate-50 text-red-800 border-t-2 border-red-500 font-bold'
+                : 'text-red-100 hover:bg-white/10'
+            }`}
+          >
+            <span>Tutte le Atlete</span>
+            <span className="bg-red-900/50 text-red-100 px-2 py-0.5 rounded-full text-[10px]">
+              {atlete.length}
+            </span>
+          </button>
+          {CATEGORIES.map(cat => {
+            const count = atlete.filter(a => a.categorie && a.categorie.includes(cat)).length;
+            return (
+              <button
+                key={cat}
+                onClick={() => setActiveTab(cat)}
+                className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-xl transition-all flex-shrink-0 flex items-center space-x-2 ${
+                  activeTab === cat
+                    ? 'bg-slate-50 text-red-800 border-t-2 border-red-500 font-bold'
+                    : 'text-red-100 hover:bg-white/10'
+                }`}
+              >
+                <span>{cat}</span>
+                <span className="bg-red-900/50 text-red-100 px-2 py-0.5 rounded-full text-[10px]">
+                  {count}
+                </span>
+              </button>
             );
+          })}
+        </div>
+      </header>
 
-            return () => unsubscribe();
-          }, [user]);
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center space-x-3">
+            <div className="p-3 bg-red-50 text-red-700 rounded-xl">
+              <Users className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 font-medium">Totale Atlete</p>
+              <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats.total}</p>
+            </div>
+          </div>
 
-          const getCertStatus = (dateString) => {
-            if (!dateString) return { status: 'UNKNOWN', label: 'Non Inserito', color: 'bg-slate-100 text-slate-700 border-slate-300' };
-            
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const certDate = new Date(dateString);
-            certDate.setHours(0, 0, 0, 0);
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center space-x-3">
+            <div className="p-3 bg-red-100 text-red-700 rounded-xl">
+              <XCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 font-medium">Cert. Scaduti</p>
+              <p className="text-xl sm:text-2xl font-bold text-red-600">{stats.expired}</p>
+            </div>
+          </div>
 
-            if (isNaN(certDate.getTime())) {
-              return { status: 'UNKNOWN', label: 'Non Valido', color: 'bg-slate-100 text-slate-700 border-slate-300' };
-            }
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center space-x-3">
+            <div className="p-3 bg-amber-50 text-amber-700 rounded-xl">
+              <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 font-medium">In Scadenza (30g)</p>
+              <p className="text-xl sm:text-2xl font-bold text-amber-600">{stats.expiring}</p>
+            </div>
+          </div>
 
-            const diffDays = Math.ceil((certDate - today) / (1000 * 60 * 60 * 24));
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center space-x-3">
+            <div className="p-3 bg-rose-50 text-rose-700 rounded-xl">
+              <CreditCard className="w-5 h-5 sm:w-6 sm:h-6" />
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 font-medium">Rate Sospese</p>
+              <p className="text-xl sm:text-2xl font-bold text-rose-600">{stats.pendingPayments}</p>
+            </div>
+          </div>
+        </div>
 
-            if (diffDays < 0) {
-              return { status: 'EXPIRED', label: 'Scaduto', color: 'bg-red-100 text-red-700 border-red-300 shadow-sm font-bold', days: Math.abs(diffDays) };
-            } else if (diffDays <= 30) {
-              return { status: 'EXPIRING', label: `In Scadenza (${diffDays} gg)`, color: 'bg-amber-100 text-amber-800 border-amber-300 shadow-sm font-semibold', days: diffDays };
-            } else {
-              return { status: 'VALID', label: 'Valido', color: 'bg-emerald-100 text-emerald-800 border-emerald-300 font-medium', days: diffDays };
-            }
-          };
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+              <input
+                type="text"
+                placeholder="Cerca per Nome, Cognome o Codice Fiscale..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white transition-all"
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
 
-          const getPaymentBadge = (status) => {
-            const st = status || 'NON DOVUTO';
-            switch (st) {
-              case 'PAGATO':
-                return { label: 'PAGATO', color: 'bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold' };
-              case 'DA PAGARE':
-                return { label: 'DA PAGARE', color: 'bg-red-100 text-red-800 border-red-300 font-bold' };
-              case 'NON DOVUTO':
-              default:
-                return { label: 'NON DOVUTO', color: 'bg-slate-100 text-slate-500 border-slate-200' };
-            }
-          };
+            <div className="flex items-center space-x-2">
+              <label className="flex items-center space-x-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer transition-all">
+                <Upload className="w-4 h-4 text-slate-600" />
+                <span>Importa CSV</span>
+                <input type="file" accept=".csv, .txt" onChange={handleFileUpload} className="hidden" />
+              </label>
 
-          const handleOpenModal = (athlete = null) => {
-            if (athlete) {
-              setCurrentAthlete(athlete);
-              setFormData({
-                nomeCompleto: athlete.nomeCompleto || `${athlete.cognome || ''} ${athlete.nome || ''}`.trim(),
-                matricola: athlete.matricola || '',
-                anno: athlete.anno || '',
-                codiceFiscale: athlete.codiceFiscale || '',
-                dataNascita: athlete.dataNascita || '',
-                societaAppartenenza: athlete.societaAppartenenza || '',
-                categorie: athlete.categorie || [],
-                scadenzaCertificato: athlete.scadenzaCertificato || '',
-                pagamentoRata1: athlete.pagamentoRata1 || 'NON DOVUTO',
-                pagamentoRata2: athlete.pagamentoRata2 || 'NON DOVUTO',
-                note: athlete.note || ''
-              });
-            } else {
-              setCurrentAthlete(null);
-              setFormData({
-                nomeCompleto: '',
-                matricola: '',
-                anno: new Date().getFullYear().toString(),
-                codiceFiscale: '',
-                dataNascita: '',
-                societaAppartenenza: '',
-                categorie: activeTab !== 'ALL' ? [activeTab] : [],
-                scadenzaCertificato: '',
-                pagamentoRata1: 'NON DOVUTO',
-                pagamentoRata2: 'NON DOVUTO',
-                note: ''
-              });
-            }
-            setIsModalOpen(true);
-          };
+              <button
+                onClick={exportCSV}
+                className="flex items-center space-x-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all"
+              >
+                <Download className="w-4 h-4 text-slate-600" />
+                <span>Esporta CSV</span>
+              </button>
+            </div>
+          </div>
 
-          const handleCategoryToggle = (cat) => {
-            setFormData(prev => {
-              const exists = prev.categorie.includes(cat);
-              if (exists) {
-                return { ...prev, categorie: prev.categorie.filter(c => c !== cat) };
-              } else {
-                return { ...prev, categorie: [...prev.categorie, cat] };
-              }
-            });
-          };
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 text-xs">
+            <span className="font-semibold text-slate-500 flex items-center mr-1">
+              <Filter className="w-3.5 h-3.5 mr-1" /> Filtri:
+            </span>
 
-          // Conversione da Excel/CSV tollerante a dati mancanti
-          const handleFileUpload = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
+            <select
+              value={certFilter}
+              onChange={(e) => setCertFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 text-slate-700 py-1.5 px-3 rounded-lg font-medium focus:ring-2 focus:ring-red-600 outline-none"
+            >
+              <option value="ALL">Certificati: Tutti</option>
+              <option value="EXPIRED">🔴 Solo Scaduti</option>
+              <option value="EXPIRING">🟠 Solo In Scadenza (30 gg)</option>
+              <option value="PROBLEMATIC">⚠️ Scaduti o In Scadenza</option>
+              <option value="VALID">🟢 Solo Validi</option>
+            </select>
 
-            const parseExcelDate = (val) => {
-              if (!val) return '';
-              if (typeof val === 'number') {
-                const dateObj = XLSX.SSF.parse_date_code(val);
-                if (dateObj) {
-                  const y = dateObj.y;
-                  const m = String(dateObj.m).padStart(2, '0');
-                  const d = String(dateObj.d).padStart(2, '0');
-                  return `${y}-${m}-${d}`;
-                }
-              }
-              const str = String(val).trim();
-              if (str.includes('/')) {
-                const parts = str.split('/');
-                if (parts.length === 3) {
-                  if (parts[2].length === 4) {
-                    return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                  }
-                }
-              }
-              return str;
-            };
+            <select
+              value={paymentFilter}
+              onChange={(e) => setPaymentFilter(e.target.value)}
+              className="bg-slate-50 border border-slate-200 text-slate-700 py-1.5 px-3 rounded-lg font-medium focus:ring-2 focus:ring-red-600 outline-none"
+            >
+              <option value="ALL">Pagamenti: Tutti</option>
+              <option value="PENDING_1">I Rata DA PAGARE</option>
+              <option value="PENDING_2">II Rata DA PAGARE</option>
+              <option value="PENDING_ANY">Almeno una rata DA PAGARE</option>
+            </select>
 
-            const processRows = (rows) => {
-              // Salta 5 righe (dati da riga 6)
-              const dataRows = rows.slice(5);
+            {(certFilter !== 'ALL' || paymentFilter !== 'ALL' || searchQuery !== '') && (
+              <button
+                onClick={() => {
+                  setCertFilter('ALL');
+                  setPaymentFilter('ALL');
+                  setSearchQuery('');
+                }}
+                className="text-red-700 font-semibold hover:underline ml-auto"
+              >
+                Resetta Filtri
+              </button>
+            )}
+          </div>
+        </div>
 
-              const parsed = dataRows.map((cols) => {
-                if (!cols || cols.length === 0) return null;
+        {loading ? (
+          <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-sm">
+            <RefreshCw className="w-8 h-8 text-red-600 animate-spin mx-auto mb-3" />
+            <p className="text-slate-500 text-sm font-medium">Sincronizzazione dati dal cloud...</p>
+          </div>
+        ) : filteredAtlete.length === 0 ? (
+          <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-sm">
+            <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <h3 className="text-base font-bold text-slate-700">Nessuna Atleta Trovata</h3>
+            <p className="text-xs text-slate-500 mt-1">Nessun elemento risponde ai criteri di ricerca selezionati.</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-100/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+                  <tr>
+                    <th className="py-3 px-4">Atleta</th>
+                    <th className="py-3 px-4">Codice Fiscale</th>
+                    <th className="py-3 px-4">Nascita</th>
+                    <th className="py-3 px-4">Categorie</th>
+                    <th className="py-3 px-4">Certificato Medico</th>
+                    <th className="py-3 px-4 text-center">I Rata</th>
+                    <th className="py-3 px-4 text-center">II Rata</th>
+                    <th className="py-3 px-4 text-right">Azioni</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredAtlete.map((athlete) => {
+                    const certStatus = getCertStatus(athlete.scadenzaCertificato);
+                    const r1Badge = getPaymentBadge(athlete.pagamentoRata1);
+                    const r2Badge = getPaymentBadge(athlete.pagamentoRata2);
 
-                const nomeCompleto = (cols[2] || '').toString().trim();
-                if (!nomeCompleto) return null;
+                    return (
+                      <tr key={athlete.id} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-slate-900">
+                          {athlete.cognome} {athlete.nome}
+                          {athlete.note && (
+                            <p className="text-[11px] font-normal text-slate-400 italic mt-0.5 truncate max-w-xs">
+                              {athlete.note}
+                            </p>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-slate-600">{athlete.codiceFiscale || '-'}</td>
+                        <td className="py-3.5 px-4 text-slate-600">{athlete.dataNascita || '-'}</td>
+                        <td className="py-3.5 px-4">
+                          <div className="flex flex-wrap gap-1">
+                            {(athlete.categorie || []).map(cat => (
+                              <span key={cat} className="bg-red-50 text-red-800 border border-red-200 px-2 py-0.5 rounded-md font-bold text-[10px]">
+                                {cat}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] border ${certStatus.color}`}>
+                            {certStatus.status === 'EXPIRED' && <XCircle className="w-3.5 h-3.5 text-red-600" />}
+                            {certStatus.status === 'EXPIRING' && <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />}
+                            {certStatus.status === 'VALID' && <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />}
+                            <span>{athlete.scadenzaCertificato ? athlete.scadenzaCertificato : 'Mancante'}</span>
+                            <span className="opacity-75">({certStatus.label})</span>
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span className={`px-2.5 py-1 rounded-md text-[10px] border ${r1Badge.color}`}>
+                            {r1Badge.label}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <span className={`px-2.5 py-1 rounded-md text-[10px] border ${r2Badge.color}`}>
+                            {r2Badge.label}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-right space-x-1">
+                          <button
+                            onClick={() => handleOpenModal(athlete)}
+                            className="p-1.5 text-slate-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Modifica Atleta"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteConfirmId(athlete.id)}
+                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Elimina"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-                const anno = (cols[0] || '').toString().trim();
-                const matricola = (cols[1] || '').toString().trim();
-                const codiceFiscale = (cols[4] || '').toString().toUpperCase().trim();
-                const dataNascita = parseExcelDate(cols[5]);
-                
-                // Pulizia Società di Appartenenza: rimuove slashes iniziali e spazi vuoti
-                let societaAppartenenza = (cols[15] || '').toString().trim();
-                societaAppartenenza = societaAppartenenza.replace(/^[\/\s]+/, '');
+            <div className="lg:hidden divide-y divide-slate-100">
+              {filteredAtlete.map((athlete) => {
+                const certStatus = getCertStatus(athlete.scadenzaCertificato);
+                const r1Badge = getPaymentBadge(athlete.pagamentoRata1);
+                const r2Badge = getPaymentBadge(athlete.pagamentoRata2);
 
-                const certDate = parseExcelDate(cols[27]);
-
-                return {
-                  nomeCompleto,
-                  anno,
-                  matricola,
-                  codiceFiscale,
-                  dataNascita,
-                  societaAppartenenza,
-                  categorie: activeTab !== 'ALL' ? [activeTab] : [],
-                  scadenzaCertificato: certDate || '',
-                  pagamentoRata1: 'NON DOVUTO',
-                  pagamentoRata2: 'NON DOVUTO',
-                  note: ''
-                };
-              }).filter(Boolean);
-
-              setImportRows(parsed);
-              setIsImportModalOpen(true);
-            };
-
-            const reader = new FileReader();
-            if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-              reader.onload = (event) => {
-                try {
-                  const data = new Uint8Array(event.target.result);
-                  const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                  const firstSheetName = workbook.SheetNames[0];
-                  const worksheet = workbook.Sheets[firstSheetName];
-                  const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-                  processRows(rows);
-                } catch (err) {
-                  console.error("Errore lettura file Excel:", err);
-                  alert("Si è verificato un errore durante la lettura del file Excel.");
-                }
-              };
-              reader.readAsArrayBuffer(file);
-            } else {
-              reader.onload = (event) => {
-                try {
-                  const text = event.target.result;
-                  const lines = text.split(/\r\n|\n/);
-                  const rows = lines.map(line => {
-                    const delimiter = line.includes(';') ? ';' : ',';
-                    return line.split(delimiter).map(c => c.trim().replace(/^"(.*)"$/, '$1'));
-                  });
-                  processRows(rows);
-                } catch (err) {
-                  console.error("Errore lettura file CSV:", err);
-                  alert("Si è verificato un errore durante la lettura del file CSV.");
-                }
-              };
-              reader.readAsText(file);
-            }
-            e.target.value = null;
-          };
-
-          const handleSubmit = async (e) => {
-            e.preventDefault();
-            if (!formData.nomeCompleto) {
-              alert("Nome e Cognome sono obbligatori.");
-              return;
-            }
-
-            const cfClean = (formData.codiceFiscale || '').toUpperCase().trim();
-
-            // Controllo duplicati Codice Fiscale
-            if (cfClean) {
-              const isDuplicate = atlete.some(a => 
-                (a.codiceFiscale || '').toUpperCase().trim() === cfClean &&
-                (!currentAthlete || a.id !== currentAthlete.id)
-              );
-
-              if (isDuplicate) {
-                alert("Atleta già inserita");
-                return;
-              }
-            }
-
-            // Pulizia Società Appartenenza (rimozione slash e spazi iniziali)
-            const societaClean = (formData.societaAppartenenza || '').trim().replace(/^[\/\s]+/, '');
-
-            try {
-              const dataToSave = {
-                ...formData,
-                codiceFiscale: cfClean,
-                societaAppartenenza: societaClean,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-              };
-
-              const atleteRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('atlete');
-
-              if (currentAthlete) {
-                await atleteRef.doc(currentAthlete.id).update(dataToSave);
-              } else {
-                await atleteRef.add({
-                  ...dataToSave,
-                  createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-              }
-              setIsModalOpen(false);
-            } catch (err) {
-              console.error("Errore salvataggio:", err);
-              alert("Si è verificato un errore durante il salvataggio dei dati.");
-            }
-          };
-
-          const handleConfirmImport = async () => {
-            if (importRows.length === 0) return;
-            setImporting(true);
-
-            try {
-              const atleteRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('atlete');
-              
-              // Mappa dei CF già presenti a sistema
-              const existingCFs = new Set(atlete.map(a => (a.codiceFiscale || '').toUpperCase().trim()).filter(Boolean));
-              
-              let importedCount = 0;
-              let duplicateCount = 0;
-
-              for (const item of importRows) {
-                const itemCF = (item.codiceFiscale || '').toUpperCase().trim();
-
-                if (itemCF && existingCFs.has(itemCF)) {
-                  duplicateCount++;
-                  continue; // Salta il duplicato
-                }
-
-                await atleteRef.add({
-                  ...item,
-                  createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                if (itemCF) {
-                  existingCFs.add(itemCF);
-                }
-                importedCount++;
-              }
-
-              setIsImportModalOpen(false);
-              setImportRows([]);
-
-              if (duplicateCount > 0) {
-                alert(`Importazione completata! ${importedCount} atlete inserite. ${duplicateCount} atlete ignorate perché già inserite.`);
-              } else {
-                alert(`Importate con successo ${importedCount} atlete!`);
-              }
-            } catch (err) {
-              console.error("Errore importazione:", err);
-              alert("Si è verificato un errore durante l'importazione.");
-            } finally {
-              setImporting(false);
-            }
-          };
-
-          const filteredAtlete = useMemo(() => {
-            return atlete.filter(item => {
-              const searchLower = searchQuery.toLowerCase();
-              const fullName = (item.nomeCompleto || `${item.cognome || ''} ${item.nome || ''}`).toLowerCase();
-              const cf = (item.codiceFiscale || '').toLowerCase();
-              
-              const matchesSearch = !searchQuery || fullName.includes(searchLower) || cf.includes(searchLower);
-              const matchesTab = activeTab === 'ALL' || (item.categorie && item.categorie.includes(activeTab));
-
-              const certInfo = getCertStatus(item.scadenzaCertificato);
-              let matchesCert = true;
-              if (certFilter === 'EXPIRED') matchesCert = certInfo.status === 'EXPIRED';
-              if (certFilter === 'EXPIRING') matchesCert = certInfo.status === 'EXPIRING';
-              if (certFilter === 'VALID') matchesCert = certInfo.status === 'VALID';
-              if (certFilter === 'PROBLEMATIC') matchesCert = certInfo.status === 'EXPIRED' || certInfo.status === 'EXPIRING';
-
-              let matchesPayment = true;
-              const r1 = item.pagamentoRata1 || 'NON DOVUTO';
-              const r2 = item.pagamentoRata2 || 'NON DOVUTO';
-
-              if (paymentFilter === 'PENDING_1') matchesPayment = r1 === 'DA PAGARE';
-              if (paymentFilter === 'PENDING_2') matchesPayment = r2 === 'DA PAGARE';
-              if (paymentFilter === 'PENDING_ANY') matchesPayment = r1 === 'DA PAGARE' || r2 === 'DA PAGARE';
-
-              return matchesSearch && matchesTab && matchesCert && matchesPayment;
-            });
-          }, [atlete, searchQuery, activeTab, certFilter, paymentFilter]);
-
-          const stats = useMemo(() => {
-            let expired = 0;
-            let expiring = 0;
-            let pendingPayments = 0;
-
-            atlete.forEach(item => {
-              const status = getCertStatus(item.scadenzaCertificato).status;
-              if (status === 'EXPIRED') expired++;
-              if (status === 'EXPIRING') expiring++;
-
-              if (item.pagamentoRata1 === 'DA PAGARE' || item.pagamentoRata2 === 'DA PAGARE') {
-                pendingPayments++;
-              }
-            });
-
-            return { total: atlete.length, expired, expiring, pendingPayments };
-          }, [atlete]);
-
-          const exportCSV = () => {
-            if (atlete.length === 0) return;
-
-            const headers = ["Anno", "Matricola", "Atleta", "Codice Fiscale", "Data Nascita", "Societa Appartenenza", "Categorie", "Scadenza Certificato", "I Rata", "II Rata", "Note"];
-            const rows = filteredAtlete.map(a => [
-              `"${a.anno || ''}"`,
-              `"${a.matricola || ''}"`,
-              `"${a.nomeCompleto || `${a.cognome || ''} ${a.nome || ''}`.trim()}"`,
-              `"${a.codiceFiscale || ''}"`,
-              `"${a.dataNascita || ''}"`,
-              `"${a.societaAppartenenza || ''}"`,
-              `"${(a.categorie || []).join(', ')}"`,
-              `"${a.scadenzaCertificato || ''}"`,
-              `"${a.pagamentoRata1 || 'NON DOVUTO'}"`,
-              `"${a.pagamentoRata2 || 'NON DOVUTO'}"`,
-              `"${(a.note || '').replace(/"/g, '""')}"`
-            ]);
-
-            const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(";"), ...rows.map(e => e.join(";"))].join("\n");
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", `atlete_monteroni_${new Date().toISOString().slice(0,10)}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          };
-
-          return (
-            <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-12">
-              {/* Header Bar */}
-              <header className="bg-gradient-to-r from-red-800 via-[#B81D24] to-red-900 text-white shadow-md sticky top-0 z-20">
-                <div className="max-w-7xl mx-auto px-4 py-3 sm:px-6 lg:px-8 flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-1 bg-white rounded-2xl shadow-md">
-                      <MonteroniLogo className="w-9 h-10" />
+                return (
+                  <div key={athlete.id} className="p-4 space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-sm">
+                          {athlete.cognome} {athlete.nome}
+                        </h4>
+                        <p className="text-xs font-mono text-slate-500">{athlete.codiceFiscale || 'CF Assente'}</p>
+                      </div>
+                      <div className="flex space-x-1">
+                        <button
+                          onClick={() => handleOpenModal(athlete)}
+                          className="p-2 text-slate-600 bg-slate-100 hover:bg-red-50 hover:text-red-700 rounded-lg"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirmId(athlete.id)}
+                          className="p-2 text-slate-400 bg-slate-100 hover:bg-red-50 hover:text-red-600 rounded-lg"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white">ASD Monteroni Volley Manager</h1>
-                      <p className="text-xs text-red-100">Database Condiviso Atlete</p>
+
+                    <div className="flex flex-wrap gap-1">
+                      {(athlete.categorie || []).map(cat => (
+                        <span key={cat} className="bg-red-50 text-red-800 border border-red-200 px-2 py-0.5 rounded-md font-bold text-[10px]">
+                          {cat}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Data Nascita</span>
+                        <span className="font-semibold text-slate-700">{athlete.dataNascita || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px]">Certificato Medico</span>
+                        <span className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] border ${certStatus.color}`}>
+                          <span>{athlete.scadenzaCertificato || 'Mancante'}</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <span className="text-slate-400 block text-[10px] mb-1">I Rata</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] border ${r1Badge.color}`}>
+                          {r1Badge.label}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block text-[10px] mb-1">II Rata</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] border ${r2Badge.color}`}>
+                          {r2Badge.label}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => setIsInstallModalOpen(true)}
-                      className="flex items-center space-x-1.5 bg-white/10 hover:bg-white/20 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all"
-                    >
-                      <span>Installa App</span>
-                    </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </main>
 
-                    <button
-                      onClick={() => handleOpenModal()}
-                      className="flex items-center space-x-1.5 bg-white hover:bg-red-50 text-red-700 px-3.5 py-2 rounded-xl font-bold shadow-lg shadow-black/10 transition-all text-xs sm:text-sm"
-                    >
-                      <span>+ Nuova Atleta</span>
-                    </button>
-                  </div>
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 my-8">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+              <h2 className="text-lg font-bold text-slate-800">
+                {currentAthlete ? 'Modifica Scheda Atleta' : 'Inserisci Nuova Atleta'}
+              </h2>
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Nome *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.nome}
+                    onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-600 outline-none"
+                  />
                 </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Cognome *</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.cognome}
+                    onChange={(e) => setFormData({ ...formData, cognome: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-600 outline-none"
+                  />
+                </div>
+              </div>
 
-                {/* Category Tabs */}
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex overflow-x-auto no-scrollbar space-x-1 pt-1">
-                  <button
-                    onClick={() => setActiveTab('ALL')}
-                    className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-xl transition-all flex-shrink-0 flex items-center space-x-2 ${
-                      activeTab === 'ALL'
-                        ? 'bg-slate-50 text-red-800 border-t-2 border-red-500 font-bold'
-                        : 'text-red-100 hover:bg-white/10'
-                    }`}
-                  >
-                    <span>Tutte le Atlete</span>
-                    <span className="bg-red-900/50 text-red-100 px-2 py-0.5 rounded-full text-[10px]">
-                      {atlete.length}
-                    </span>
-                  </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Codice Fiscale</label>
+                  <input
+                    type="text"
+                    maxLength={16}
+                    value={formData.codiceFiscale}
+                    onChange={(e) => setFormData({ ...formData, codiceFiscale: e.target.value.toUpperCase() })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono uppercase focus:ring-2 focus:ring-red-600 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Data di Nascita</label>
+                  <input
+                    type="date"
+                    value={formData.dataNascita}
+                    onChange={(e) => setFormData({ ...formData, dataNascita: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-600 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Categorie di Appartenenza (Seleziona Multiple)
+                </label>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                   {CATEGORIES.map(cat => {
-                    const count = atlete.filter(a => a.categorie && a.categorie.includes(cat)).length;
+                    const selected = formData.categorie.includes(cat);
                     return (
                       <button
+                        type="button"
                         key={cat}
-                        onClick={() => setActiveTab(cat)}
-                        className={`px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-xl transition-all flex-shrink-0 flex items-center space-x-2 ${
-                          activeTab === cat
-                            ? 'bg-slate-50 text-red-800 border-t-2 border-red-500 font-bold'
-                            : 'text-red-100 hover:bg-white/10'
+                        onClick={() => handleCategoryToggle(cat)}
+                        className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all flex items-center justify-center space-x-1 ${
+                          selected
+                            ? 'bg-red-700 text-white border-red-700 shadow-md shadow-red-700/20'
+                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                         }`}
                       >
+                        {selected && <Check className="w-3 h-3" />}
                         <span>{cat}</span>
-                        <span className="bg-red-900/50 text-red-100 px-2 py-0.5 rounded-full text-[10px]">
-                          {count}
-                        </span>
                       </button>
                     );
                   })}
                 </div>
-              </header>
+              </div>
 
-              <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
-                {/* KPI Dashboard Cards */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-                    <p className="text-xs text-slate-500 font-medium">Totale Atlete</p>
-                    <p className="text-xl sm:text-2xl font-bold text-slate-900">{stats.total}</p>
-                  </div>
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-                    <p className="text-xs text-slate-500 font-medium">Cert. Scaduti</p>
-                    <p className="text-xl sm:text-2xl font-bold text-red-600">{stats.expired}</p>
-                  </div>
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-                    <p className="text-xs text-slate-500 font-medium">In Scadenza (30g)</p>
-                    <p className="text-xl sm:text-2xl font-bold text-amber-600">{stats.expiring}</p>
-                  </div>
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-                    <p className="text-xs text-slate-500 font-medium">Rate Sospese</p>
-                    <p className="text-xl sm:text-2xl font-bold text-rose-600">{stats.pendingPayments}</p>
-                  </div>
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Scadenza Certificato Medico
+                </label>
+                <input
+                  type="date"
+                  value={formData.scadenzaCertificato}
+                  onChange={(e) => setFormData({ ...formData, scadenzaCertificato: e.target.value })}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-600 outline-none"
+                />
+              </div>
 
-                {/* Filters and Actions Bar */}
-                <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                    <div className="relative flex-1">
-                      <input
-                        type="text"
-                        placeholder="Cerca per Nome, Cognome o Codice Fiscale..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:bg-white transition-all"
-                      />
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      <label className="flex items-center space-x-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold cursor-pointer transition-all">
-                        <span>Importa Excel/CSV</span>
-                        <input type="file" accept=".xlsx, .xls, .csv, .txt" onChange={handleFileUpload} className="hidden" />
-                      </label>
-
-                      <button
-                        onClick={exportCSV}
-                        className="flex items-center space-x-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all"
-                      >
-                        <span>Esporta CSV</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 text-xs">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+                <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Stato Pagamento Quote</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-slate-600 font-medium mb-1">Stato I Rata</label>
                     <select
-                      value={certFilter}
-                      onChange={(e) => setCertFilter(e.target.value)}
-                      className="bg-slate-50 border border-slate-200 text-slate-700 py-1.5 px-3 rounded-lg font-medium outline-none"
+                      value={formData.pagamentoRata1}
+                      onChange={(e) => setFormData({ ...formData, pagamentoRata1: e.target.value })}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-red-600 outline-none"
                     >
-                      <option value="ALL">Certificati: Tutti</option>
-                      <option value="EXPIRED">🔴 Solo Scaduti</option>
-                      <option value="EXPIRING">🟠 Solo In Scadenza (30 gg)</option>
-                      <option value="PROBLEMATIC">⚠️ Scaduti o In Scadenza</option>
-                      <option value="VALID">🟢 Solo Validi</option>
+                      {PAYMENT_STATUSES.map(st => (
+                        <option key={st} value={st}>{st}</option>
+                      ))}
                     </select>
-
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-600 font-medium mb-1">Stato II Rata</label>
                     <select
-                      value={paymentFilter}
-                      onChange={(e) => setPaymentFilter(e.target.value)}
-                      className="bg-slate-50 border border-slate-200 text-slate-700 py-1.5 px-3 rounded-lg font-medium outline-none"
+                      value={formData.pagamentoRata2}
+                      onChange={(e) => setFormData({ ...formData, pagamentoRata2: e.target.value })}
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-red-600 outline-none"
                     >
-                      <option value="ALL">Pagamenti: Tutti</option>
-                      <option value="PENDING_1">I Rata DA PAGARE</option>
-                      <option value="PENDING_2">II Rata DA PAGARE</option>
-                      <option value="PENDING_ANY">Almeno una rata DA PAGARE</option>
+                      {PAYMENT_STATUSES.map(st => (
+                        <option key={st} value={st}>{st}</option>
+                      ))}
                     </select>
-
-                    {(certFilter !== 'ALL' || paymentFilter !== 'ALL' || searchQuery !== '') && (
-                      <button
-                        onClick={() => {
-                          setCertFilter('ALL');
-                          setPaymentFilter('ALL');
-                          setSearchQuery('');
-                        }}
-                        className="text-red-700 font-semibold hover:underline ml-auto"
-                      >
-                        Resetta Filtri
-                      </button>
-                    )}
                   </div>
                 </div>
+              </div>
 
-                {/* Tabella Atlete */}
-                {loading ? (
-                  <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-sm">
-                    <p className="text-slate-500 text-sm font-medium">Caricamento in corso...</p>
-                  </div>
-                ) : filteredAtlete.length === 0 ? (
-                  <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 shadow-sm">
-                    <h3 className="text-base font-bold text-slate-700">Nessuna Atleta Trovata</h3>
-                  </div>
-                ) : (
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div className="hidden lg:block overflow-x-auto">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead className="bg-slate-100/80 border-b border-slate-200 text-slate-600 font-bold uppercase">
-                          <tr>
-                            <th className="py-3 px-4">Atleta</th>
-                            <th className="py-3 px-4">Codice Fiscale</th>
-                            <th className="py-3 px-4">Nascita</th>
-                            <th className="py-3 px-4">Categorie</th>
-                            <th className="py-3 px-4">Certificato Medico</th>
-                            <th className="py-3 px-4 text-center">I Rata</th>
-                            <th className="py-3 px-4 text-center">II Rata</th>
-                            <th className="py-3 px-4 text-right">Azioni</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {filteredAtlete.map((athlete) => {
-                            const certStatus = getCertStatus(athlete.scadenzaCertificato);
-                            const r1Badge = getPaymentBadge(athlete.pagamentoRata1);
-                            const r2Badge = getPaymentBadge(athlete.pagamentoRata2);
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Note Aggiuntive</label>
+                <textarea
+                  rows={2}
+                  value={formData.note}
+                  onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                  placeholder="Note mediche, contatto genitori, note logistiche..."
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-red-600 outline-none"
+                />
+              </div>
 
-                            return (
-                              <tr key={athlete.id} className="hover:bg-slate-50/80 transition-colors">
-                                <td className="py-3.5 px-4 font-bold text-slate-900">
-                                  {athlete.nomeCompleto || `${athlete.cognome || ''} ${athlete.nome || ''}`}
-                                  <div className="flex items-center space-x-2 mt-0.5">
-                                    {athlete.matricola && <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">Matr: {athlete.matricola}</span>}
-                                    {athlete.anno && <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">Anno: {athlete.anno}</span>}
-                                    {athlete.societaAppartenenza && <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-medium">Soc: {athlete.societaAppartenenza}</span>}
-                                  </div>
-                                </td>
-                                <td className="py-3.5 px-4 font-mono text-slate-600">{athlete.codiceFiscale || '-'}</td>
-                                <td className="py-3.5 px-4 text-slate-600">{athlete.dataNascita || '-'}</td>
-                                <td className="py-3.5 px-4">
-                                  <div className="flex flex-wrap gap-1">
-                                    {(athlete.categorie || []).length > 0 ? (
-                                      athlete.categorie.map(cat => (
-                                        <span key={cat} className="bg-red-50 text-red-800 border border-red-200 px-2 py-0.5 rounded-md font-bold text-[10px]">
-                                          {cat}
-                                        </span>
-                                      ))
-                                    ) : (
-                                      <span className="text-slate-400 text-[10px] italic">Nessuna</span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="py-3.5 px-4">
-                                  <span className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] border ${certStatus.color}`}>
-                                    <span>{athlete.scadenzaCertificato ? athlete.scadenzaCertificato : 'Mancante'}</span>
-                                    <span className="opacity-75">({certStatus.label})</span>
-                                  </span>
-                                </td>
-                                <td className="py-3.5 px-4 text-center">
-                                  <span className={`px-2.5 py-1 rounded-md text-[10px] border ${r1Badge.color}`}>
-                                    {r1Badge.label}
-                                  </span>
-                                </td>
-                                <td className="py-3.5 px-4 text-center">
-                                  <span className={`px-2.5 py-1 rounded-md text-[10px] border ${r2Badge.color}`}>
-                                    {r2Badge.label}
-                                  </span>
-                                </td>
-                                <td className="py-3.5 px-4 text-right space-x-1">
-                                  <button
-                                    onClick={() => handleOpenModal(athlete)}
-                                    className="p-1.5 text-slate-600 hover:text-red-700 hover:bg-red-50 rounded-lg"
-                                  >
-                                    Modifica
-                                  </button>
-                                  <button
-                                    onClick={() => setDeleteConfirmId(athlete.id)}
-                                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                                  >
-                                    Elimina
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </main>
+              <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium text-sm transition-all"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl font-medium text-sm shadow-lg shadow-red-700/20 transition-all"
+                >
+                  {currentAthlete ? 'Salva Modifiche' : 'Inserisci Atleta'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-              {/* Modal Inserimento/Modifica */}
-              {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-                  <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 my-8">
-                    <div className="flex justify-between items-center pb-4 border-b border-slate-100">
-                      <h2 className="text-lg font-bold text-slate-800">
-                        {currentAthlete ? 'Modifica Scheda Atleta' : 'Inserisci Nuova Atleta'}
-                      </h2>
-                      <button onClick={() => setIsModalOpen(false)} className="text-slate-400">✕</button>
-                    </div>
-
-                    <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="sm:col-span-2">
-                          <label className="block text-xs font-bold text-slate-700 mb-1">Cognome e Nome *</label>
-                          <input
-                            type="text"
-                            required
-                            value={formData.nomeCompleto}
-                            onChange={(e) => setFormData({ ...formData, nomeCompleto: e.target.value })}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-600 outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">N° Matricola (Col B)</label>
-                          <input
-                            type="text"
-                            value={formData.matricola}
-                            onChange={(e) => setFormData({ ...formData, matricola: e.target.value })}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-600 outline-none"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">Anno (Col A)</label>
-                          <input
-                            type="text"
-                            value={formData.anno}
-                            onChange={(e) => setFormData({ ...formData, anno: e.target.value })}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-600 outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">Codice Fiscale (Col E)</label>
-                          <input
-                            type="text"
-                            maxLength={16}
-                            value={formData.codiceFiscale}
-                            onChange={(e) => setFormData({ ...formData, codiceFiscale: e.target.value.toUpperCase() })}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono uppercase focus:ring-2 focus:ring-red-600 outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-700 mb-1">Data Nascita (Col F)</label>
-                          <input
-                            type="date"
-                            value={formData.dataNascita}
-                            onChange={(e) => setFormData({ ...formData, dataNascita: e.target.value })}
-                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-600 outline-none"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Società Appartenenza / Prestito (Col P)</label>
-                        <input
-                          type="text"
-                          placeholder="Es. ASD Monteroni Volley..."
-                          value={formData.societaAppartenenza}
-                          onChange={(e) => setFormData({ ...formData, societaAppartenenza: e.target.value })}
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-600 outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1.5">Categorie di Appartenenza</label>
-                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                          {CATEGORIES.map(cat => {
-                            const selected = formData.categorie.includes(cat);
-                            return (
-                              <button
-                                type="button"
-                                key={cat}
-                                onClick={() => handleCategoryToggle(cat)}
-                                className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all ${
-                                  selected
-                                    ? 'bg-red-700 text-white border-red-700'
-                                    : 'bg-slate-50 text-slate-600 border-slate-200'
-                                }`}
-                              >
-                                {cat}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <label className="block text-xs font-bold text-slate-700">Scadenza Certificato Medico (Col AB)</label>
-                          {formData.scadenzaCertificato && (
-                            <button
-                              type="button"
-                              onClick={() => setFormData({ ...formData, scadenzaCertificato: '' })}
-                              className="text-[10px] text-red-600 font-semibold hover:underline"
-                            >
-                              Svuota Data
-                            </button>
-                          )}
-                        </div>
-                        <input
-                          type="date"
-                          value={formData.scadenzaCertificato}
-                          onChange={(e) => setFormData({ ...formData, scadenzaCertificato: e.target.value })}
-                          className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-600 outline-none"
-                        />
-                      </div>
-
-                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3">
-                        <h4 className="text-xs font-bold text-slate-700 uppercase">Stato Pagamento Quote</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs text-slate-600 font-medium mb-1">Stato I Rata</label>
-                            <select
-                              value={formData.pagamentoRata1}
-                              onChange={(e) => setFormData({ ...formData, pagamentoRata1: e.target.value })}
-                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none"
-                            >
-                              {PAYMENT_STATUSES.map(st => (
-                                <option key={st} value={st}>{st}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-xs text-slate-600 font-medium mb-1">Stato II Rata</label>
-                            <select
-                              value={formData.pagamentoRata2}
-                              onChange={(e) => setFormData({ ...formData, pagamentoRata2: e.target.value })}
-                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold outline-none"
-                            >
-                              {PAYMENT_STATUSES.map(st => (
-                                <option key={st} value={st}>{st}</option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100">
-                        <button
-                          type="button"
-                          onClick={() => setIsModalOpen(false)}
-                          className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-medium text-sm"
-                        >
-                          Annulla
-                        </button>
-                        <button
-                          type="submit"
-                          className="px-5 py-2.5 bg-red-700 text-white rounded-xl font-medium text-sm shadow-lg shadow-red-700/20"
-                        >
-                          Salva Atleta
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
-
-              {/* Modal Anteprima Importazione */}
-              {isImportModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-                  <div className="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl border border-slate-100 my-8">
-                    <h2 className="text-xl font-bold text-slate-800">
-                      Anteprima Importazione ({importRows.length} Atlete Trovate)
-                    </h2>
-                    <p className="text-xs text-slate-500 my-2">
-                      I dati sono stati estratti automaticamente a partire dalla riga 6 del file.
-                    </p>
-
-                    <div className="max-h-80 overflow-y-auto border border-slate-200 rounded-xl my-3">
-                      <table className="w-full text-left text-xs border-collapse">
-                        <thead className="bg-slate-100 sticky top-0 border-b border-slate-200">
-                          <tr>
-                            <th className="p-2.5">Atleta (Col C)</th>
-                            <th className="p-2.5">CF (Col E)</th>
-                            <th className="p-2.5">Nascita (Col F)</th>
-                            <th className="p-2.5">Società (Col P)</th>
-                            <th className="p-2.5">Certificato (Col AB)</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {importRows.map((row, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50">
-                              <td className="p-2.5 font-semibold">{row.nomeCompleto}</td>
-                              <td className="p-2.5 font-mono">{row.codiceFiscale || '-'}</td>
-                              <td className="p-2.5">{row.dataNascita || '-'}</td>
-                              <td className="p-2.5">{row.societaAppartenenza || '-'}</td>
-                              <td className="p-2.5">{row.scadenzaCertificato || '-'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className="flex justify-end space-x-3 pt-3 border-t border-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => setIsImportModalOpen(false)}
-                        className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-medium text-sm"
-                      >
-                        Annulla
-                      </button>
-                      <button
-                        type="button"
-                        disabled={importing}
-                        onClick={handleConfirmImport}
-                        className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl font-medium text-sm shadow-lg shadow-emerald-600/20"
-                      >
-                        {importing ? 'Salvataggio...' : 'Conferma e Salva in Database'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl border border-slate-100 my-8">
+            <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+              <div className="flex items-center space-x-2">
+                <FileSpreadsheet className="w-6 h-6 text-emerald-600" />
+                <h2 className="text-xl font-bold text-slate-800">
+                  Anteprima Importazione ({importRows.length} Atlete Rilevate)
+                </h2>
+              </div>
+              <button 
+                onClick={() => setIsImportModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-          );
-        }
 
-        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
-    </script>
-</body>
-</html>
+            <p className="text-xs text-slate-500 my-3">
+              Le prime 5 righe del file sono state escluse automaticamente. Verifica l'anteprima dei dati estratti prima di confermare.
+            </p>
+
+            <div className="max-h-80 overflow-y-auto border border-slate-200 rounded-xl my-3">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-100 sticky top-0 border-b border-slate-200">
+                  <tr>
+                    <th className="p-2.5 font-bold">Cognome</th>
+                    <th className="p-2.5 font-bold">Nome</th>
+                    <th className="p-2.5 font-bold">CF</th>
+                    <th className="p-2.5 font-bold">Data Nascita</th>
+                    <th className="p-2.5 font-bold">Categorie</th>
+                    <th className="p-2.5 font-bold">Certificato</th>
+                    <th className="p-2.5 font-bold">I Rata</th>
+                    <th className="p-2.5 font-bold">II Rata</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {importRows.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50">
+                      <td className="p-2.5 font-semibold">{row.cognome}</td>
+                      <td className="p-2.5 font-semibold">{row.nome}</td>
+                      <td className="p-2.5 font-mono">{row.codiceFiscale || '-'}</td>
+                      <td className="p-2.5">{row.dataNascita || '-'}</td>
+                      <td className="p-2.5">{row.categorie.join(', ') || '-'}</td>
+                      <td className="p-2.5">{row.scadenzaCertificato || '-'}</td>
+                      <td className="p-2.5">{row.pagamentoRata1}</td>
+                      <td className="p-2.5">{row.pagamentoRata2}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(false)}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium text-sm transition-all"
+              >
+                Annulla
+              </button>
+              <button
+                type="button"
+                disabled={importing}
+                onClick={handleConfirmImport}
+                className="flex items-center space-x-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium text-sm shadow-lg shadow-emerald-600/20 transition-all disabled:opacity-50"
+              >
+                {importing && <RefreshCw className="w-4 h-4 animate-spin" />}
+                <span>Conferma e Salva in Database</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isInstallModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 my-8 space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-2">
+                <Smartphone className="w-6 h-6 text-blue-600" />
+                <h2 className="text-lg font-bold text-slate-800">Installa su Smartphone (Gratis)</h2>
+              </div>
+              <button 
+                onClick={() => setIsInstallModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600">
+              Puoi salvare ed utilizzare quest'App come una qualsiasi applicazione nativa sul tuo telefono o tablet, senza passare da App Store / Play Store.
+            </p>
+
+            <div className="space-y-4 text-xs">
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <div className="font-bold text-slate-900 flex items-center space-x-2">
+                  <span className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">1</span>
+                  <span>Su iPhone / iPad (Safari)</span>
+                </div>
+                <ol className="list-decimal pl-6 space-y-1 text-slate-600">
+                  <li>Apri questa pagina nel browser <strong>Safari</strong>.</li>
+                  <li>Tocca il pulsante di <strong>Condivisione</strong> <Share className="w-3.5 h-3.5 inline mx-1 text-blue-600" /> in basso al centro.</li>
+                  <li>Scorri nel menu e seleziona <strong>"Aggiungi alla schermata Home"</strong> <PlusSquare className="w-3.5 h-3.5 inline mx-1 text-slate-700" />.</li>
+                  <li>Tocca <strong>Aggiungi</strong> in alto a destra.</li>
+                </ol>
+              </div>
+
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <div className="font-bold text-slate-900 flex items-center space-x-2">
+                  <span className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px]">2</span>
+                  <span>Su Android (Chrome)</span>
+                </div>
+                <ol className="list-decimal pl-6 space-y-1 text-slate-600">
+                  <li>Apri questa pagina nel browser <strong>Google Chrome</strong>.</li>
+                  <li>Tocca i <strong>3 puntini verticali</strong> in alto a destra.</li>
+                  <li>Seleziona <strong>"Aggiungi a Schermata Home"</strong> oppure <strong>"Installa applicazione"</strong>.</li>
+                  <li>Conferma cliccando su <strong>Installa</strong>.</li>
+                </ol>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={() => setIsInstallModalOpen(false)}
+                className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium text-xs transition-all"
+              >
+                Ho Capito!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-center space-y-4">
+            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mx-auto">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Confermi l'eliminazione?</h3>
+              <p className="text-xs text-slate-500 mt-1">Questa azione non può essere annullata. L'atleta verrà rimossa dal database comune.</p>
+            </div>
+            <div className="flex space-x-3 pt-2">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-medium text-sm transition-all"
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirmId)}
+                className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl font-medium text-sm shadow-lg shadow-red-600/20 transition-all"
+              >
+                Elimina
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
