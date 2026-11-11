@@ -238,37 +238,6 @@
             });
           };
 
-          const handleSubmit = async (e) => {
-            e.preventDefault();
-            if (!formData.nomeCompleto) {
-              alert("Nome e Cognome sono obbligatori.");
-              return;
-            }
-
-            try {
-              const dataToSave = {
-                ...formData,
-                codiceFiscale: (formData.codiceFiscale || '').toUpperCase().trim(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-              };
-
-              const atleteRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('atlete');
-
-              if (currentAthlete) {
-                await atleteRef.doc(currentAthlete.id).update(dataToSave);
-              } else {
-                await atleteRef.add({
-                  ...dataToSave,
-                  createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-              }
-              setIsModalOpen(false);
-            } catch (err) {
-              console.error("Errore salvataggio:", err);
-              alert("Si è verificato un errore durante il salvataggio dei dati.");
-            }
-          };
-
           // Conversione da Excel/CSV tollerante a dati mancanti
           const handleFileUpload = (e) => {
             const file = e.target.files[0];
@@ -311,7 +280,11 @@
                 const matricola = (cols[1] || '').toString().trim();
                 const codiceFiscale = (cols[4] || '').toString().toUpperCase().trim();
                 const dataNascita = parseExcelDate(cols[5]);
-                const societaAppartenenza = (cols[15] || '').toString().trim();
+                
+                // Pulizia Società di Appartenenza: rimuove slashes iniziali e spazi vuoti
+                let societaAppartenenza = (cols[15] || '').toString().trim();
+                societaAppartenenza = societaAppartenenza.replace(/^[\/\s]+/, '');
+
                 const certDate = parseExcelDate(cols[27]);
 
                 return {
@@ -339,11 +312,13 @@
                 try {
                   const data = new Uint8Array(event.target.result);
                   const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-                  const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                  const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+                  const firstSheetName = workbook.SheetNames[0];
+                  const worksheet = workbook.Sheets[firstSheetName];
+                  const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
                   processRows(rows);
                 } catch (err) {
-                  alert("Impossibile leggere il file Excel.");
+                  console.error("Errore lettura file Excel:", err);
+                  alert("Si è verificato un errore durante la lettura del file Excel.");
                 }
               };
               reader.readAsArrayBuffer(file);
@@ -352,18 +327,69 @@
                 try {
                   const text = event.target.result;
                   const lines = text.split(/\r\n|\n/);
-                  const rows = lines.map(l => {
-                    const sep = l.includes(';') ? ';' : ',';
-                    return l.split(sep).map(c => c.trim().replace(/^"(.*)"$/, '$1'));
+                  const rows = lines.map(line => {
+                    const delimiter = line.includes(';') ? ';' : ',';
+                    return line.split(delimiter).map(c => c.trim().replace(/^"(.*)"$/, '$1'));
                   });
                   processRows(rows);
                 } catch (err) {
-                  alert("Errore durante la lettura del file CSV.");
+                  console.error("Errore lettura file CSV:", err);
+                  alert("Si è verificato un errore durante la lettura del file CSV.");
                 }
               };
               reader.readAsText(file);
             }
             e.target.value = null;
+          };
+
+          const handleSubmit = async (e) => {
+            e.preventDefault();
+            if (!formData.nomeCompleto) {
+              alert("Nome e Cognome sono obbligatori.");
+              return;
+            }
+
+            const cfClean = (formData.codiceFiscale || '').toUpperCase().trim();
+
+            // Controllo duplicati Codice Fiscale
+            if (cfClean) {
+              const isDuplicate = atlete.some(a => 
+                (a.codiceFiscale || '').toUpperCase().trim() === cfClean &&
+                (!currentAthlete || a.id !== currentAthlete.id)
+              );
+
+              if (isDuplicate) {
+                alert("Atleta già inserita");
+                return;
+              }
+            }
+
+            // Pulizia Società Appartenenza (rimozione slash e spazi iniziali)
+            const societaClean = (formData.societaAppartenenza || '').trim().replace(/^[\/\s]+/, '');
+
+            try {
+              const dataToSave = {
+                ...formData,
+                codiceFiscale: cfClean,
+                societaAppartenenza: societaClean,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+              };
+
+              const atleteRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('atlete');
+
+              if (currentAthlete) {
+                await atleteRef.doc(currentAthlete.id).update(dataToSave);
+              } else {
+                await atleteRef.add({
+                  ...dataToSave,
+                  createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+              }
+              setIsModalOpen(false);
+            } catch (err) {
+              console.error("Errore salvataggio:", err);
+              alert("Si è verificato un errore durante il salvataggio dei dati.");
+            }
           };
 
           const handleConfirmImport = async () => {
@@ -372,30 +398,45 @@
 
             try {
               const atleteRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('atlete');
+              
+              // Mappa dei CF già presenti a sistema
+              const existingCFs = new Set(atlete.map(a => (a.codiceFiscale || '').toUpperCase().trim()).filter(Boolean));
+              
+              let importedCount = 0;
+              let duplicateCount = 0;
+
               for (const item of importRows) {
+                const itemCF = (item.codiceFiscale || '').toUpperCase().trim();
+
+                if (itemCF && existingCFs.has(itemCF)) {
+                  duplicateCount++;
+                  continue; // Salta il duplicato
+                }
+
                 await atleteRef.add({
                   ...item,
                   createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
+
+                if (itemCF) {
+                  existingCFs.add(itemCF);
+                }
+                importedCount++;
               }
+
               setIsImportModalOpen(false);
               setImportRows([]);
-              alert(`Importate con successo ${importRows.length} atlete!`);
+
+              if (duplicateCount > 0) {
+                alert(`Importazione completata! ${importedCount} atlete inserite. ${duplicateCount} atlete ignorate perché già inserite.`);
+              } else {
+                alert(`Importate con successo ${importedCount} atlete!`);
+              }
             } catch (err) {
               console.error("Errore importazione:", err);
               alert("Si è verificato un errore durante l'importazione.");
             } finally {
               setImporting(false);
-            }
-          };
-
-          const handleDelete = async (id) => {
-            try {
-              const atleteRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('atlete');
-              await atleteRef.doc(id).delete();
-              setDeleteConfirmId(null);
-            } catch (err) {
-              alert("Errore durante l'eliminazione.");
             }
           };
 
